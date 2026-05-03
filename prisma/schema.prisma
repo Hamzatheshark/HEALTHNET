@@ -1,0 +1,93 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  role      String   @default("PATIENT")
+  specialty String?  // Pour médecins
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  appointmentsAsPatient Appointment[] @relation("PatientAppointments")
+  appointmentsAsDoctor  Appointment[] @relation("DoctorAppointments")
+  consultationsAsPatient Consultation[] @relation("PatientConsultations")
+  consultationsAsDoctor  Consultation[] @relation("DoctorConsultations")
+
+  @@map("users")
+}
+
+model Appointment {
+  id          String   @id @default(cuid())
+  date        DateTime
+  time        String
+  type        String   @default("IN_PERSON")
+  location    String?
+  status      String   @default("PENDING")
+  reason      String?
+  notes       String?
+
+  // Relations
+  patientId   String
+  patient     User     @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId    String
+  doctor      User     @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: Cascade)
+
+  // Consultation liée (optionnelle)
+  consultation Consultation?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("appointments")
+}
+
+model Consultation {
+  id            String   @id @default(cuid())
+  date          DateTime
+  reason        String
+  diagnosis     String?
+  prescription  Boolean  @default(false)
+  followUp      String?
+  notes         String?
+
+  // Relations
+  patientId     String
+  patient       User     @relation("PatientConsultations", fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId      String
+  doctor        User     @relation("DoctorConsultations", fields: [doctorId], references: [id], onDelete: Cascade)
+
+  // RDV lié
+  appointmentId String?  @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("consultations")
+}
+
+model RolePermission {
+  id          String   @id @default(cuid())
+  role        String   @unique
+  permissions String   // JSON array stored as string
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("role_permissions")
+}

@@ -3,36 +3,42 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { signIn } from "next-auth/react"
 import { Heart, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-
-const roles = [
-  { value: "patient", label: "Patient", description: "Acceder a vos rendez-vous et dossier medical" },
-  { value: "medecin", label: "Medecin", description: "Gerer vos consultations et patients" },
-  { value: "secretaire", label: "Secretaire", description: "Gerer les rendez-vous et planning" },
-  { value: "admin", label: "Administrateur", description: "Administrer la plateforme" },
-]
 
 export default function LoginPage() {
   const router = useRouter()
-  const [selectedRole, setSelectedRole] = useState("patient")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Demo: redirect based on selected role
-    const roleRoutes = {
-      patient: "/dashboard/patient/rendez-vous",
-      medecin: "/dashboard/medecin/dashboard",
-      secretaire: "/dashboard/secretaire/agenda-global",
-      admin: "/dashboard/admin/utilisateurs",
+    setIsLoading(true)
+    setError("")
+
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        setError("Email ou mot de passe incorrect")
+      } else {
+        router.push("/dashboard")
+      }
+    } catch (error) {
+      setError("Une erreur est survenue")
+    } finally {
+      setIsLoading(false)
     }
-    router.push(roleRoutes[selectedRole as keyof typeof roleRoutes])
   }
 
   return (
@@ -59,36 +65,16 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Connexion</CardTitle>
           <CardDescription>
-            Connectez-vous a votre espace HealthNet
+            Connectez-vous à votre espace HealthNet
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Role Selection (for demo) */}
-            <div className="space-y-3">
-              <Label>Selectionner un role (demo)</Label>
-              <RadioGroup value={selectedRole} onValueChange={setSelectedRole}>
-                <div className="grid grid-cols-2 gap-3">
-                  {roles.map((role) => (
-                    <Label
-                      key={role.value}
-                      htmlFor={role.value}
-                      className={`flex cursor-pointer flex-col rounded-lg border p-3 transition-colors ${
-                        selectedRole === role.value
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <RadioGroupItem value={role.value} id={role.value} />
-                        <span className="font-medium text-foreground">{role.label}</span>
-                      </div>
-                      <span className="mt-1 text-xs text-muted-foreground">{role.description}</span>
-                    </Label>
-                  ))}
-                </div>
-              </RadioGroup>
-            </div>
+            {error && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -98,6 +84,7 @@ export default function LoginPage() {
                 placeholder="exemple@healthnet.fr"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
               />
             </div>
 
@@ -105,7 +92,7 @@ export default function LoginPage() {
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Mot de passe</Label>
                 <Link href="#" className="text-sm text-primary hover:underline">
-                  Mot de passe oublie ?
+                  Mot de passe oublié ?
                 </Link>
               </div>
               <Input
@@ -114,11 +101,12 @@ export default function LoginPage() {
                 placeholder="Votre mot de passe"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
               />
             </div>
 
-            <Button type="submit" className="w-full" size="lg">
-              Se connecter
+            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              {isLoading ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
 
@@ -138,7 +126,7 @@ export default function LoginPage() {
         </Link>{" "}
         et notre{" "}
         <Link href="/privacy" className="underline hover:text-foreground">
-          politique de confidentialite
+          politique de confidentialité
         </Link>
         .
       </p>

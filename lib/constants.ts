@@ -1,0 +1,21 @@
+// Liste des spécialités médicales
+export const SPECIALITES = [
+  "Médecine générale",
+  "Cardiologie",
+  "Dermatologie",
+  "Pédiatrie",
+  "Ophtalmologie",
+  "Orthopédie",
+  "Pneumologie",
+  "Gastroentérologie",
+  "Neurologie",
+  "Psychiatrie",
+  "Chirurgie générale",
+  "Urologie",
+  "Gynécologie",
+  "Rhumatologie",
+  "Endocrinologie",
+  "Oncologie",
+  "Infectiologie",
+  "Réanimation",
+]

@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,11 +11,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { User, Mail, Phone, MapPin, Calendar, Save } from "lucide-react"
 
 export default function PatientProfilePage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
-    firstName: "Marie",
-    lastName: "Dupont",
-    email: "marie.dupont@email.fr",
+    firstName: "",
+    lastName: "",
+    email: "",
     phone: "06 12 34 56 78",
     birthDate: "1985-03-15",
     address: "45 Rue de la Paix",
@@ -21,6 +25,25 @@ export default function PatientProfilePage() {
     postalCode: "75001",
     emergencyContact: "Pierre Dupont - 06 98 76 54 32",
   })
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+      return
+    }
+
+    if (session?.user) {
+      const [firstName, ...rest] = session.user.name?.split(" ") ?? [""]
+      const lastName = rest.join(" ")
+
+      setFormData((prev) => ({
+        ...prev,
+        firstName: firstName || prev.firstName,
+        lastName: lastName || prev.lastName,
+        email: session.user.email ?? prev.email,
+      }))
+    }
+  }, [session, status, router])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })

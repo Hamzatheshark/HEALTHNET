@@ -1,10 +1,15 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FileText, Activity, Pill, AlertTriangle, User, Calendar, Droplet, Heart, Scale, Ruler } from "lucide-react"
 
-const patientInfo = {
-  name: "Marie Dupont",
+const defaultPatientInfo = {
+  name: "Patient",
   birthDate: "15/03/1985",
   bloodType: "A+",
   height: "165 cm",
@@ -13,62 +18,103 @@ const patientInfo = {
   chronicConditions: ["Asthme leger"],
 }
 
-const medicalHistory = [
-  {
-    date: "10/03/2026",
-    type: "Consultation",
-    doctor: "Dr. Sophie Bernard",
-    summary: "Consultation de routine - Renouvellement ordonnance",
-    documents: ["Ordonnance", "Compte-rendu"],
-  },
-  {
-    date: "15/02/2026",
-    type: "Examen",
-    doctor: "Dr. Marie Leroy",
-    summary: "Bilan dermatologique annuel - RAS",
-    documents: ["Compte-rendu"],
-  },
-  {
-    date: "20/01/2026",
-    type: "Analyse",
-    doctor: "Laboratoire Central",
-    summary: "Bilan sanguin complet",
-    documents: ["Resultats analyses"],
-  },
-]
+type MedicalHistoryItem = {
+  date: string
+  type: string
+  doctor: string
+  summary: string
+  documents: string[]
+}
 
-const currentTreatments = [
-  {
-    name: "Ventoline",
-    dosage: "100 mcg",
-    frequency: "Si besoin",
-    prescribedBy: "Dr. Sophie Bernard",
-    startDate: "01/01/2024",
-  },
-  {
-    name: "Vitamine D",
-    dosage: "1000 UI",
-    frequency: "1x par jour",
-    prescribedBy: "Dr. Sophie Bernard",
-    startDate: "15/10/2025",
-  },
-]
+type Treatment = {
+  name: string
+  dosage: string
+  frequency: string
+  prescribedBy: string
+  startDate: string
+}
 
-const vaccinations = [
-  { name: "COVID-19 (3e dose)", date: "15/12/2023", nextDue: "-" },
-  { name: "Grippe", date: "10/10/2025", nextDue: "Octobre 2026" },
-  { name: "Tetanos", date: "20/05/2021", nextDue: "Mai 2031" },
-]
+type Vaccination = {
+  name: string
+  date: string
+  nextDue: string
+}
 
 export default function MedicalFilePage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [patientInfo, setPatientInfo] = useState(defaultPatientInfo)
+  const [medicalHistory, setMedicalHistory] = useState<MedicalHistoryItem[]>([])
+  const [currentTreatments, setCurrentTreatments] = useState<Treatment[]>([])
+  const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
+  const [loadingFile, setLoadingFile] = useState(true)
+  const [fileError, setFileError] = useState("")
+  const [activeTab, setActiveTab] = useState("history")
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+      return
+    }
+
+    if (session?.user) {
+      setPatientInfo((prev) => ({
+        ...prev,
+        name: session.user.name ?? prev.name,
+      }))
+    }
+  }, [session, status, router])
+
+  useEffect(() => {
+    const fetchMedicalFile = async () => {
+      setLoadingFile(true)
+      setFileError("")
+
+      try {
+        const response = await fetch("/api/patient/medical-file")
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Erreur lors du chargement du dossier medical")
+        }
+
+        setPatientInfo(data.patientInfo)
+        setMedicalHistory(data.medicalHistory)
+        setCurrentTreatments(data.currentTreatments)
+        setVaccinations(data.vaccinations)
+      } catch (error) {
+        setFileError(error instanceof Error ? error.message : "Erreur inconnue")
+      } finally {
+        setLoadingFile(false)
+      }
+    }
+
+    if (session?.user) {
+      fetchMedicalFile()
+    }
+  }, [session])
+
+  if (status === "loading" || loadingFile) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <p className="text-base text-muted-foreground">Chargement du dossier medical...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Mon dossier medical</h1>
-        <p className="text-muted-foreground">Consultez votre historique medical (lecture seule)</p>
+        <p className="text-muted-foreground">Consultez votre historique medical</p>
       </div>
 
-      {/* Patient Summary Card */}
+      {fileError ? (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-destructive">
+          {fileError}
+        </div>
+      ) : null}
+
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -110,7 +156,6 @@ export default function MedicalFilePage() {
             </div>
           </div>
 
-          {/* Allergies & Conditions */}
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
               <div className="flex items-center gap-2">
@@ -138,8 +183,7 @@ export default function MedicalFilePage() {
         </CardContent>
       </Card>
 
-      {/* Tabs */}
-      <Tabs defaultValue="history">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="history">
             <Activity className="mr-2 h-4 w-4" />

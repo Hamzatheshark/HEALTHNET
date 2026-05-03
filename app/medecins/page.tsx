@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { PublicNavbar } from "@/components/public-navbar"
 import { PublicFooter } from "@/components/public-footer"
@@ -9,88 +9,51 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, MapPin, Star, Calendar } from "lucide-react"
+import { SPECIALITES } from "@/lib/constants"
 
-const doctors = [
-  {
-    id: 1,
-    name: "Dr. Sophie Bernard",
-    specialty: "Medecine generale",
-    location: "Paris 15e",
-    rating: 4.9,
-    reviews: 127,
-    nextAvailable: "Aujourd hui",
-    image: "SB",
-  },
-  {
-    id: 2,
-    name: "Dr. Pierre Martin",
-    specialty: "Cardiologie",
-    location: "Paris 8e",
-    rating: 4.8,
-    reviews: 89,
-    nextAvailable: "Demain",
-    image: "PM",
-  },
-  {
-    id: 3,
-    name: "Dr. Marie Leroy",
-    specialty: "Dermatologie",
-    location: "Paris 16e",
-    rating: 4.7,
-    reviews: 156,
-    nextAvailable: "Dans 2 jours",
-    image: "ML",
-  },
-  {
-    id: 4,
-    name: "Dr. Jean Dubois",
-    specialty: "Pediatrie",
-    location: "Paris 12e",
-    rating: 4.9,
-    reviews: 203,
-    nextAvailable: "Aujourd hui",
-    image: "JD",
-  },
-  {
-    id: 5,
-    name: "Dr. Claire Moreau",
-    specialty: "Ophtalmologie",
-    location: "Paris 5e",
-    rating: 4.6,
-    reviews: 78,
-    nextAvailable: "Dans 3 jours",
-    image: "CM",
-  },
-  {
-    id: 6,
-    name: "Dr. Antoine Petit",
-    specialty: "Orthopedie",
-    location: "Paris 14e",
-    rating: 4.8,
-    reviews: 112,
-    nextAvailable: "Demain",
-    image: "AP",
-  },
-]
+type Doctor = {
+  id: string
+  firstName: string
+  lastName: string
+  specialty?: string
+}
 
-const specialties = [
-  "Tous",
-  "Medecine generale",
-  "Cardiologie",
-  "Dermatologie",
-  "Pediatrie",
-  "Ophtalmologie",
-  "Orthopedie",
-]
+const sampleLocations = ["Paris 15e", "Paris 8e", "Paris 16e", "Paris 12e"]
+const sampleTimes = ["Aujourd hui", "Demain", "Dans 2 jours", "Aujourd hui"]
+const sampleRatings = [4.9, 4.8, 4.7, 4.9, 4.6, 4.8]
+const sampleReviews = [127, 89, 156, 203, 78, 112]
 
 export default function MedecinsPage() {
   const [search, setSearch] = useState("")
   const [selectedSpecialty, setSelectedSpecialty] = useState("Tous")
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const response = await fetch("/api/doctors")
+        const data = await response.json()
+        setDoctors(data)
+      } catch (error) {
+        console.error("Error fetching doctors:", error)
+        setDoctors([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDoctors()
+  }, [])
 
   const filteredDoctors = doctors.filter((doctor) => {
-    const matchesSearch = doctor.name.toLowerCase().includes(search.toLowerCase()) ||
-      doctor.specialty.toLowerCase().includes(search.toLowerCase())
-    const matchesSpecialty = selectedSpecialty === "Tous" || doctor.specialty === selectedSpecialty
+    const fullName = `${doctor.firstName} ${doctor.lastName}`.toLowerCase()
+    const specialty = doctor.specialty || "Médecine générale"
+    const matchesSearch =
+      fullName.includes(search.toLowerCase()) ||
+      specialty.toLowerCase().includes(search.toLowerCase())
+    const matchesSpecialty =
+      selectedSpecialty === "Tous" || specialty === selectedSpecialty
     return matchesSearch && matchesSpecialty
   })
 
@@ -133,7 +96,14 @@ export default function MedecinsPage() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {/* Specialty Filters */}
             <div className="flex flex-wrap gap-2">
-              {specialties.map((specialty) => (
+              <Button
+                variant={selectedSpecialty === "Tous" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedSpecialty("Tous")}
+              >
+                Tous
+              </Button>
+              {SPECIALITES.map((specialty) => (
                 <Button
                   key={specialty}
                   variant={selectedSpecialty === specialty ? "default" : "outline"}
@@ -152,50 +122,64 @@ export default function MedecinsPage() {
 
             {/* Doctors Grid */}
             <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredDoctors.map((doctor) => (
-                <Card key={doctor.id} className="border-border/50 transition-shadow hover:shadow-lg">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-                        {doctor.image}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground">{doctor.name}</h3>
-                        <p className="text-sm text-primary">{doctor.specialty}</p>
-                        <div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {doctor.location}
+              {filteredDoctors.length > 0 ? (
+                filteredDoctors.map((doctor, index) => {
+                  const specialty = doctor.specialty || "Médecine générale"
+                  const location = sampleLocations[index % sampleLocations.length]
+                  const rating = sampleRatings[index % sampleRatings.length]
+                  const reviews = sampleReviews[index % sampleReviews.length]
+                  const nextAvailable = sampleTimes[index % sampleTimes.length]
+                  const initials = `${doctor.firstName[0]}${doctor.lastName[0]}`.toUpperCase()
+                  
+                  return (
+                    <Card key={doctor.id} className="border-border/50 transition-shadow hover:shadow-lg">
+                      <CardContent className="p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
+                            {initials}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-foreground">
+                              Dr. {doctor.firstName} {doctor.lastName}
+                            </h3>
+                            <p className="text-sm text-primary">{specialty}</p>
+                            <div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {location}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
 
-                    <div className="mt-4 flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-accent text-accent" />
-                        <span className="text-sm font-medium text-foreground">{doctor.rating}</span>
-                        <span className="text-sm text-muted-foreground">({doctor.reviews} avis)</span>
-                      </div>
-                    </div>
+                        <div className="mt-4 flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-accent text-accent" />
+                            <span className="text-sm font-medium text-foreground">{rating}</span>
+                            <span className="text-sm text-muted-foreground">({reviews} avis)</span>
+                          </div>
+                        </div>
 
-                    <div className="mt-4 flex items-center justify-between">
-                      <Badge variant="secondary" className="bg-secondary/10 text-secondary">
-                        <Calendar className="mr-1 h-3 w-3" />
-                        {doctor.nextAvailable}
-                      </Badge>
-                      <Button size="sm" asChild>
-                        <Link href="/register">Prendre RDV</Link>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        <div className="mt-4 flex items-center justify-between">
+                          <Badge variant="secondary" className="bg-secondary/10 text-secondary">
+                            <Calendar className="mr-1 h-3 w-3" />
+                            {nextAvailable}
+                          </Badge>
+                          <Button size="sm" asChild>
+                            <Link href="/register">Prendre RDV</Link>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-muted-foreground">
+                    {loading ? "Chargement des médecins..." : "Aucun médecin ne correspond à votre recherche."}
+                  </p>
+                </div>
+              )}
             </div>
 
-            {filteredDoctors.length === 0 && (
-              <div className="mt-12 text-center">
-                <p className="text-muted-foreground">Aucun medecin ne correspond a votre recherche.</p>
-              </div>
-            )}
           </div>
         </section>
       </main>
