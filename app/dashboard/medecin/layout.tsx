@@ -1,3 +1,8 @@
+"use client"
+
+import { useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 
 export default function MedecinLayout({
@@ -5,9 +10,26 @@ export default function MedecinLayout({
 }: {
   children: React.ReactNode
 }) {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+    }
+  }, [status, router])
+
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-base text-muted-foreground">Chargement...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen">
-      <DashboardSidebar role="medecin" userName="Sophie Bernard" />
+      <DashboardSidebar role="medecin" userName={session?.user?.name ?? "Medecin"} />
       <main className="flex-1 bg-background lg:ml-0">
         <div className="container mx-auto p-4 lg:p-8">
           {children}

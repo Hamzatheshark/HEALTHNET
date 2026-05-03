@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { SPECIALITES } from "@/lib/constants"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -19,6 +21,8 @@ export default function RegisterPage() {
     phone: "",
     password: "",
     confirmPassword: "",
+    role: "PATIENT",
+    specialty: "",
     acceptTerms: false,
   })
   const [step, setStep] = useState(1)
@@ -28,13 +32,36 @@ export default function RegisterPage() {
     setFormData({ ...formData, [name]: type === "checkbox" ? checked : value })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (step === 1) {
       setStep(2)
-    } else {
-      // Demo: redirect to patient dashboard
-      router.push("/dashboard/patient/rendez-vous")
+      return
+    }
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          role: formData.role,
+          specialty: formData.role === "MEDECIN" ? formData.specialty : undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Erreur lors de l'inscription")
+      }
+
+      router.push("/login?registered=true")
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Une erreur est survenue")
     }
   }
 
@@ -83,6 +110,44 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {step === 1 && (
               <>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Type de compte</Label>
+                  <Select
+                    value={formData.role}
+                    onValueChange={(value) => setFormData({ ...formData, role: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez un type de compte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PATIENT">Patient</SelectItem>
+                      <SelectItem value="MEDECIN">Médecin</SelectItem>
+                      <SelectItem value="SECRETAIRE">Secrétaire</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.role === "MEDECIN" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="specialty">Spécialité</Label>
+                    <Select
+                      value={formData.specialty}
+                      onValueChange={(value) => setFormData({ ...formData, specialty: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez votre spécialité" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SPECIALITES.map((spec) => (
+                          <SelectItem key={spec} value={spec}>
+                            {spec}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">Prenom</Label>

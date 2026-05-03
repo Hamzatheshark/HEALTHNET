@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Heart,
   Calendar,
@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 type UserRole = "patient" | "medecin" | "secretaire" | "admin"
 
@@ -49,12 +50,14 @@ const menuItems = {
     { href: "/dashboard/medecin/notifications", label: "Notifications", icon: Bell },
   ],
   secretaire: [
+    { href: "/dashboard/secretaire/collaborations", label: "Collaborations", icon: UserPlus },
     { href: "/dashboard/secretaire/agenda-global", label: "Agenda global", icon: CalendarDays },
     { href: "/dashboard/secretaire/gestion-patients", label: "Gestion patients", icon: Users },
     { href: "/dashboard/secretaire/planning-medical", label: "Planning medical", icon: Calendar },
     { href: "/dashboard/secretaire/notifications", label: "Notifications", icon: Bell },
   ],
   admin: [
+    { href: "/dashboard/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/dashboard/admin/utilisateurs", label: "Utilisateurs", icon: Users },
     { href: "/dashboard/admin/creer-compte", label: "Creer un compte", icon: UserPlus },
     { href: "/dashboard/admin/roles", label: "Gestion des roles", icon: Shield },
@@ -77,17 +80,38 @@ const profileItems = {
   admin: [],
 }
 
-const roleLabels = {
-  patient: "",
-  medecin: "Dr ",
-  secretaire: "Secretariat",
-  admin: "Admin HealthNet",
-}
-
 export function DashboardSidebar({ role, userName }: SidebarProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await fetch("/api/notifications")
+        const data = await response.json()
+        if (response.ok) {
+          const count = data.filter((n: any) => n.status === "UNREAD").length
+          setUnreadCount(count)
+        }
+      } catch (error) {
+        console.error("Error fetching notification count:", error)
+      }
+    }
+
+    fetchUnreadCount()
+    
+    const handleUpdate = () => fetchUnreadCount()
+    window.addEventListener("notificationsUpdated", handleUpdate)
+
+    // Poll every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("notificationsUpdated", handleUpdate)
+    }
+  }, [])
 
   const items = menuItems[role]
   const profile = profileItems[role]
@@ -118,20 +142,28 @@ export function DashboardSidebar({ role, userName }: SidebarProps) {
       <nav className="flex-1 space-y-1 overflow-y-auto p-4">
         {items.map((item) => {
           const isActive = pathname === item.href
+          const isNotifications = item.label === "Notifications"
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-sidebar-primary text-sidebar-primary-foreground"
                   : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
             >
-              <item.icon className="h-5 w-5" />
-              {item.label}
+              <div className="flex items-center gap-3">
+                <item.icon className="h-5 w-5" />
+                {item.label}
+              </div>
+              {isNotifications && unreadCount > 0 && (
+                <Badge variant="destructive" className="h-5 w-5 flex items-center justify-center p-0 rounded-full text-[10px]">
+                  {unreadCount}
+                </Badge>
+              )}
             </Link>
           )
         })}

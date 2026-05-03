@@ -1,72 +1,59 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, User, FileText, Calendar, Phone, Mail, ChevronRight } from "lucide-react"
-
-const patients = [
-  {
-    id: 1,
-    name: "Jean Dupont",
-    birthDate: "15/05/1975",
-    phone: "06 12 34 56 78",
-    email: "jean.dupont@email.fr",
-    lastVisit: "10/04/2026",
-    nextAppointment: "18/04/2026",
-    conditions: ["Hypertension"],
-  },
-  {
-    id: 2,
-    name: "Marie Martin",
-    birthDate: "22/08/1982",
-    phone: "06 98 76 54 32",
-    email: "marie.martin@email.fr",
-    lastVisit: "05/04/2026",
-    nextAppointment: "14/04/2026",
-    conditions: ["Diabete type 2", "Asthme"],
-  },
-  {
-    id: 3,
-    name: "Pierre Leroy",
-    birthDate: "03/12/1990",
-    phone: "06 11 22 33 44",
-    email: "pierre.leroy@email.fr",
-    lastVisit: "01/04/2026",
-    nextAppointment: null,
-    conditions: [],
-  },
-  {
-    id: 4,
-    name: "Sophie Bernard",
-    birthDate: "18/03/1968",
-    phone: "06 55 66 77 88",
-    email: "sophie.bernard@email.fr",
-    lastVisit: "28/03/2026",
-    nextAppointment: "20/04/2026",
-    conditions: ["Arthrose"],
-  },
-  {
-    id: 5,
-    name: "Paul Dubois",
-    birthDate: "07/09/1955",
-    phone: "06 99 88 77 66",
-    email: "paul.dubois@email.fr",
-    lastVisit: "15/03/2026",
-    nextAppointment: "14/04/2026",
-    conditions: ["Hypertension", "Cholesterol"],
-  },
-]
+import { Search, User, FileText, Calendar, Phone, Mail, ChevronRight, Loader2 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { MedicalRecordForm } from "@/components/MedicalRecordForm"
 
 export default function DoctorPatientsPage() {
   const [search, setSearch] = useState("")
+  const [patients, setPatients] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedPatient, setSelectedPatient] = useState<any>(null)
+  const [isRecordOpen, setIsRecordOpen] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+
+  const fetchPatients = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch("/api/patients")
+      const data = await response.json()
+      if (response.ok) {
+        setPatients(data)
+      }
+    } catch (error) {
+      console.error("Error fetching patients:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchPatients()
+  }, [])
 
   const filteredPatients = patients.filter((patient) =>
-    patient.name.toLowerCase().includes(search.toLowerCase()) ||
+    `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
     patient.email.toLowerCase().includes(search.toLowerCase())
   )
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -100,21 +87,21 @@ export default function DoctorPatientsPage() {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex gap-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-                    {patient.name.split(" ").map(n => n[0]).join("")}
+                    {patient.firstName[0]}{patient.lastName[0]}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">{patient.name}</h3>
-                    <p className="text-sm text-muted-foreground">Ne(e) le {patient.birthDate}</p>
+                    <h3 className="font-semibold text-foreground">{patient.firstName} {patient.lastName}</h3>
+                    <p className="text-sm text-muted-foreground">Ne(e) le {patient.birthDate ? new Date(patient.birthDate).toLocaleDateString() : "Non renseignee"}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {patient.conditions.length > 0 ? (
-                        patient.conditions.map((condition) => (
+                      {patient.medicalRecord?.chronicDiseases ? (
+                        patient.medicalRecord.chronicDiseases.split(",").map((condition: string) => (
                           <Badge key={condition} variant="outline" className="text-xs">
-                            {condition}
+                            {condition.trim()}
                           </Badge>
                         ))
                       ) : (
                         <Badge variant="secondary" className="bg-secondary/10 text-secondary text-xs">
-                          Aucune condition
+                          Aucun antecedent
                         </Badge>
                       )}
                     </div>
@@ -125,7 +112,7 @@ export default function DoctorPatientsPage() {
                   <div className="grid grid-cols-2 gap-4 text-sm lg:flex lg:gap-6">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Phone className="h-4 w-4" />
-                      <span>{patient.phone}</span>
+                      <span>{patient.phone || "-"}</span>
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Mail className="h-4 w-4" />
@@ -133,27 +120,48 @@ export default function DoctorPatientsPage() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Derniere visite</p>
-                      <p className="font-medium text-foreground">{patient.lastVisit}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Prochain RDV</p>
-                      <p className={`font-medium ${patient.nextAppointment ? "text-primary" : "text-muted-foreground"}`}>
-                        {patient.nextAppointment || "-"}
-                      </p>
-                    </div>
-                  </div>
-
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      <FileText className="mr-2 h-4 w-4" />
-                      Dossier
-                    </Button>
-                    <Button size="sm">
-                      <Calendar className="mr-2 h-4 w-4" />
-                      RDV
+                    <Dialog open={isRecordOpen && selectedPatient?.id === patient.id} onOpenChange={(open) => {
+                      setIsRecordOpen(open)
+                      if (open) {
+                        setSelectedPatient(patient)
+                        setIsEditMode(false)
+                      }
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <FileText className="mr-2 h-4 w-4" />
+                          Dossier
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                          <DialogTitle>Dossier Medical - {patient.firstName} {patient.lastName}</DialogTitle>
+                          <Button 
+                            variant={isEditMode ? "ghost" : "outline"} 
+                            size="sm" 
+                            onClick={() => setIsEditMode(!isEditMode)}
+                          >
+                            {isEditMode ? "Annuler" : "Modifier"}
+                          </Button>
+                        </DialogHeader>
+                        <MedicalRecordForm 
+                          patientId={patient.id} 
+                          initialData={patient.medicalRecord}
+                          readOnly={!isEditMode}
+                          onSuccess={() => {
+                            setIsRecordOpen(false)
+                            fetchPatients()
+                          }} 
+                        />
+                      </DialogContent>
+                    </Dialog>
+                    
+                    <Button size="sm" asChild>
+                      <a href={`/dashboard/medecin/agenda?patient=${patient.id}`}>
+                        <Calendar className="mr-2 h-4 w-4" />
+                        RDV
+                      </a>
                     </Button>
                   </div>
                 </div>
@@ -174,3 +182,4 @@ export default function DoctorPatientsPage() {
     </div>
   )
 }
+

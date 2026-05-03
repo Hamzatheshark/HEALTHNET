@@ -4,13 +4,20 @@ import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Download, Calendar, User, Stethoscope } from "lucide-react"
+import { FileText, Download, Calendar, User, Stethoscope, Check, Pill } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 type Consultation = {
   id: string
   date: string
   reason: string
   diagnosis: string | null
+  treatment: string | null
   prescription: boolean
   followUp: string | null
   doctor: {
@@ -29,6 +36,8 @@ export default function PatientConsultationsPage() {
   const [consultations, setConsultations] = useState<Consultation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   useEffect(() => {
     const fetchConsultations = async () => {
@@ -100,26 +109,18 @@ export default function PatientConsultationsPage() {
                         <User className="h-3.5 w-3.5" />
                         Dr. {consultation.doctor.firstName} {consultation.doctor.lastName} - {consultation.doctor.specialty ?? "Specialite inconnue"}
                       </div>
-                      {consultation.appointment && (
-                        <div className="rounded-lg bg-muted/50 p-3">
-                          <p className="text-sm font-medium text-foreground">Rendez-vous lie</p>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(consultation.appointment.date).toLocaleDateString("fr-FR")} à {consultation.appointment.time} - {consultation.appointment.type === "TELECONSULTATION" ? "Téléconsultation" : "Consultation en cabinet"}
-                          </p>
-                        </div>
-                      )}
-                      <p className="text-sm text-muted-foreground">
-                        <span className="font-medium">Suivi:</span> {consultation.followUp ?? "Aucun suivi enregistre"}
-                      </p>
-                      <div className="rounded-lg bg-muted/50 p-3">
-                        <p className="text-sm font-medium text-foreground">Diagnostic</p>
-                        <p className="text-sm text-muted-foreground">{consultation.diagnosis ?? "Non renseigne"}</p>
-                      </div>
                     </div>
                   </div>
 
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setSelectedConsultation(consultation)
+                        setIsDetailsOpen(true)
+                      }}
+                    >
                       <FileText className="mr-2 h-4 w-4" />Voir details
                     </Button>
                     {consultation.prescription && (
@@ -134,6 +135,60 @@ export default function PatientConsultationsPage() {
           ))}
         </div>
       )}
+
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Details de la consultation</DialogTitle>
+          </DialogHeader>
+          {selectedConsultation && (
+            <div className="space-y-6 py-4">
+              <div className="flex items-center gap-4 border-b pb-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <Stethoscope className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Docteur</p>
+                  <p className="font-semibold text-lg">Dr. {selectedConsultation.doctor.firstName} {selectedConsultation.doctor.lastName}</p>
+                  <p className="text-sm text-muted-foreground">{selectedConsultation.doctor.specialty}</p>
+                </div>
+                <div className="ml-auto text-right">
+                  <p className="text-sm text-muted-foreground">Date</p>
+                  <p className="font-medium">{new Date(selectedConsultation.date).toLocaleDateString("fr-FR")}</p>
+                </div>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-foreground flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" /> Motif
+                  </h4>
+                  <p className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-lg">
+                    {selectedConsultation.reason}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="font-medium text-foreground flex items-center gap-2">
+                    <Check className="h-4 w-4 text-secondary" /> Diagnostic
+                  </h4>
+                  <p className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-lg">
+                    {selectedConsultation.diagnosis || "Aucun diagnostic renseigne"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-medium text-foreground flex items-center gap-2">
+                  <Pill className="h-4 w-4 text-accent" /> Traitement & Recommendations
+                </h4>
+                <p className="text-sm text-muted-foreground p-4 border rounded-lg whitespace-pre-wrap">
+                  {selectedConsultation.treatment || "Aucun traitement specifie"}
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

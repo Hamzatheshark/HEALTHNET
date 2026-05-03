@@ -106,7 +106,6 @@ export async function DELETE(
   request: NextRequest,
   context: { params: any }
 ) {
-  const { params } = context
   try {
     const session = await getServerSession(authOptions)
 
@@ -114,7 +113,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const appointmentId = params.id
+    const resolvedParams = await context.params
+    const appointmentId = resolvedParams.id
 
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },

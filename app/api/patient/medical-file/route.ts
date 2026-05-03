@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/db"
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,60 +11,63 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const patientId = session.user.id
+
+    const user = await prisma.user.findUnique({
+      where: { id: patientId },
+      include: {
+        medicalRecord: {
+          include: {
+            treatments: true,
+            vaccinations: true,
+          }
+        },
+        consultationsAsPatient: {
+          orderBy: { date: "desc" },
+          include: {
+            doctor: {
+              select: { firstName: true, lastName: true }
+            }
+          }
+        }
+      }
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const medicalRecord = user.medicalRecord
+
     const medicalFile = {
       patientInfo: {
-        name: session.user.name ?? "Patient",
-        birthDate: "15/03/1985",
-        bloodType: "A+",
-        height: "165 cm",
-        weight: "62 kg",
-        allergies: ["Penicilline", "Arachides"],
-        chronicConditions: ["Asthme leger"],
+        name: `${user.firstName} ${user.lastName}`,
+        birthDate: user.birthDate ? user.birthDate.toLocaleDateString() : "Non renseignee",
+        bloodType: medicalRecord?.bloodType || "Non renseigne",
+        height: medicalRecord?.height || "Non renseignee",
+        weight: medicalRecord?.weight || "Non renseigne",
+        allergies: medicalRecord?.allergies ? medicalRecord.allergies.split(",") : [],
+        chronicConditions: medicalRecord?.chronicDiseases ? medicalRecord.chronicDiseases.split(",") : [],
       },
-      medicalHistory: [
-        {
-          date: "2026-03-10",
-          type: "Consultation",
-          doctor: "Dr. Sophie Bernard",
-          summary: "Consultation de routine - Renouvellement ordonnance",
-          documents: ["Ordonnance", "Compte-rendu"],
-        },
-        {
-          date: "2026-02-15",
-          type: "Examen",
-          doctor: "Dr. Marie Leroy",
-          summary: "Bilan dermatologique annuel - RAS",
-          documents: ["Compte-rendu"],
-        },
-        {
-          date: "2026-01-20",
-          type: "Analyse",
-          doctor: "Laboratoire Central",
-          summary: "Bilan sanguin complet",
-          documents: ["Resultats analyses"],
-        },
-      ],
-      currentTreatments: [
-        {
-          name: "Ventoline",
-          dosage: "100 mcg",
-          frequency: "Si besoin",
-          prescribedBy: "Dr. Sophie Bernard",
-          startDate: "01/01/2024",
-        },
-        {
-          name: "Vitamine D",
-          dosage: "1000 UI",
-          frequency: "1x par jour",
-          prescribedBy: "Dr. Sophie Bernard",
-          startDate: "15/10/2025",
-        },
-      ],
-      vaccinations: [
-        { name: "COVID-19 (3e dose)", date: "15/12/2023", nextDue: "-" },
-        { name: "Grippe", date: "10/10/2025", nextDue: "Octobre 2026" },
-        { name: "Tetanos", date: "20/05/2021", nextDue: "Mai 2031" },
-      ],
+      medicalHistory: user.consultationsAsPatient.map(c => ({
+        date: c.date.toLocaleDateString(),
+        type: "Consultation",
+        doctor: `Dr. ${c.doctor.firstName} ${c.doctor.lastName}`,
+        summary: c.reason,
+        documents: c.reportUrl ? ["Compte-rendu"] : [],
+      })),
+      currentTreatments: medicalRecord?.treatments.map(t => ({
+        name: t.name,
+        dosage: t.dosage,
+        frequency: t.frequency,
+        prescribedBy: t.prescribedBy,
+        startDate: t.startDate.toLocaleDateString(),
+      })) || [],
+      vaccinations: medicalRecord?.vaccinations.map(v => ({
+        name: v.name,
+        date: v.date.toLocaleDateString(),
+        nextDue: v.nextDue ? v.nextDue.toLocaleDateString() : "-",
+      })) || [],
     }
 
     return NextResponse.json(medicalFile)
@@ -72,3 +76,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+

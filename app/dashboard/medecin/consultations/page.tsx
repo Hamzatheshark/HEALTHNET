@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,63 +15,100 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus, FileText, Download, Search, Calendar, User, Stethoscope, Save } from "lucide-react"
-
-const recentConsultations = [
-  {
-    id: 1,
-    patient: "Jean Dupont",
-    date: "10/04/2026",
-    reason: "Consultation de routine",
-    diagnosis: "Bonne sante generale",
-    hasPrescription: true,
-  },
-  {
-    id: 2,
-    patient: "Marie Martin",
-    date: "05/04/2026",
-    reason: "Douleurs dorsales",
-    diagnosis: "Lombalgie - Repos recommande",
-    hasPrescription: true,
-  },
-  {
-    id: 3,
-    patient: "Pierre Leroy",
-    date: "01/04/2026",
-    reason: "Bilan annuel",
-    diagnosis: "RAS - Vaccination grippe effectuee",
-    hasPrescription: false,
-  },
-]
-
-const patients = [
-  { id: 1, name: "Jean Dupont" },
-  { id: 2, name: "Marie Martin" },
-  { id: 3, name: "Pierre Leroy" },
-  { id: 4, name: "Sophie Bernard" },
-  { id: 5, name: "Paul Dubois" },
-]
+import { Plus, FileText, Download, Search, Calendar, User, Stethoscope, Save, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 export default function DoctorConsultationsPage() {
   const [activeTab, setActiveTab] = useState("new")
   const [search, setSearch] = useState("")
+  const [patients, setPatients] = useState<any[]>([])
+  const [loadingPatients, setLoadingPatients] = useState(true)
+  const [recentConsultations, setRecentConsultations] = useState<any[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [saving, setSaving] = useState(false)
+  
   const [formData, setFormData] = useState({
-    patient: "",
+    patientId: "",
     reason: "",
-    symptoms: "",
     diagnosis: "",
     treatment: "",
     notes: "",
-    followUp: "",
-    generatePrescription: false,
+    recommendations: "",
   })
+
+  useEffect(() => {
+    fetchPatients()
+    fetchHistory()
+  }, [])
+
+  const fetchPatients = async () => {
+    setLoadingPatients(true)
+    try {
+      const response = await fetch("/api/patients")
+      const data = await response.json()
+      if (response.ok) setPatients(data)
+    } catch (error) {
+      console.error("Error fetching patients:", error)
+    } finally {
+      setLoadingPatients(false)
+    }
+  }
+
+  const fetchHistory = async () => {
+    setLoadingHistory(true)
+    try {
+      const response = await fetch("/api/medecin/consultations")
+      const data = await response.json()
+      if (response.ok) setRecentConsultations(data)
+    } catch (error) {
+      console.error("Error fetching history:", error)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.patientId) {
+      toast.error("Veuillez selectionner un patient")
+      return
+    }
+
+    setSaving(true)
+    try {
+      const response = await fetch("/api/medecin/consultations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      })
+      if (response.ok) {
+        toast.success("Consultation enregistree avec succes")
+        setFormData({
+          patientId: "",
+          reason: "",
+          diagnosis: "",
+          treatment: "",
+          notes: "",
+          recommendations: "",
+        })
+        fetchHistory()
+        setActiveTab("history")
+      } else {
+        toast.error("Erreur lors de l'enregistrement")
+      }
+    } catch (error) {
+      toast.error("Erreur reseau")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const filteredConsultations = recentConsultations.filter((c) =>
-    c.patient.toLowerCase().includes(search.toLowerCase())
+    `${c.patient.firstName} ${c.patient.lastName}`.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -102,17 +139,22 @@ export default function DoctorConsultationsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="patient">Patient</Label>
-                    <Select value={formData.patient} onValueChange={(v) => setFormData({ ...formData, patient: v })}>
+                    <Label htmlFor="patientId">Patient</Label>
+                    <Select 
+                      value={formData.patientId} 
+                      onValueChange={(v) => setFormData({ ...formData, patientId: v })}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selectionner un patient" />
+                        <SelectValue placeholder={loadingPatients ? "Chargement..." : "Selectionner un patient"} />
                       </SelectTrigger>
                       <SelectContent>
                         {patients.map((p) => (
-                          <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.firstName} {p.lastName}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -126,20 +168,9 @@ export default function DoctorConsultationsPage() {
                       placeholder="Ex: Douleurs abdominales"
                       value={formData.reason}
                       onChange={handleChange}
+                      required
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="symptoms">Symptomes observes</Label>
-                  <Textarea
-                    id="symptoms"
-                    name="symptoms"
-                    placeholder="Decrivez les symptomes du patient..."
-                    value={formData.symptoms}
-                    onChange={handleChange}
-                    rows={3}
-                  />
                 </div>
 
                 <div className="space-y-2">
@@ -168,18 +199,18 @@ export default function DoctorConsultationsPage() {
 
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="followUp">Suivi recommande</Label>
+                    <Label htmlFor="recommendations">Recommandations</Label>
                     <Input
-                      id="followUp"
-                      name="followUp"
-                      placeholder="Ex: Dans 2 semaines"
-                      value={formData.followUp}
+                      id="recommendations"
+                      name="recommendations"
+                      placeholder="Ex: Repos, hydratation..."
+                      value={formData.recommendations}
                       onChange={handleChange}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="notes">Notes complementaires</Label>
+                    <Label htmlFor="notes">Notes privees</Label>
                     <Input
                       id="notes"
                       name="notes"
@@ -191,13 +222,18 @@ export default function DoctorConsultationsPage() {
                 </div>
 
                 <div className="flex flex-col gap-4 sm:flex-row">
-                  <Button type="button" className="flex-1 sm:flex-none">
-                    <Save className="mr-2 h-4 w-4" />
-                    Enregistrer la consultation
-                  </Button>
-                  <Button type="button" variant="outline" className="flex-1 sm:flex-none">
-                    <Download className="mr-2 h-4 w-4" />
-                    Generer ordonnance PDF
+                  <Button type="submit" disabled={saving}>
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Enregistrement...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Enregistrer la consultation
+                      </>
+                    )}
                   </Button>
                 </div>
               </form>
@@ -221,47 +257,51 @@ export default function DoctorConsultationsPage() {
           </Card>
 
           <div className="space-y-4">
-            {filteredConsultations.map((consultation) => (
-              <Card key={consultation.id} className="border-border/50">
-                <CardContent className="p-6">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                        <Stethoscope className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-foreground">{consultation.patient}</h3>
-                          {consultation.hasPrescription && (
-                            <Badge variant="secondary" className="bg-secondary/10 text-secondary">
-                              Ordonnance
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {consultation.date}
-                        </div>
-                        <p className="mt-2 text-sm text-foreground">{consultation.reason}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">{consultation.diagnosis}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        <FileText className="mr-2 h-4 w-4" />
-                        Voir
-                      </Button>
-                      {consultation.hasPrescription && (
-                        <Button variant="outline" size="sm">
-                          <Download className="mr-2 h-4 w-4" />
-                          PDF
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+            {loadingHistory ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredConsultations.length === 0 ? (
+              <Card className="border-border/50">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Stethoscope className="h-12 w-12 text-muted-foreground/50" />
+                  <p className="mt-4 text-muted-foreground">Aucune consultation trouvee</p>
                 </CardContent>
               </Card>
-            ))}
+            ) : (
+              filteredConsultations.map((consultation) => (
+                <Card key={consultation.id} className="border-border/50">
+                  <CardContent className="p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                          <Stethoscope className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-foreground">
+                              {consultation.patient.firstName} {consultation.patient.lastName}
+                            </h3>
+                          </div>
+                          <div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {new Date(consultation.createdAt).toLocaleDateString()}
+                          </div>
+                          <p className="mt-2 text-sm text-foreground">{consultation.reason}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">{consultation.diagnosis}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          <FileText className="mr-2 h-4 w-4" />
+                          Voir
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </TabsContent>
       </Tabs>

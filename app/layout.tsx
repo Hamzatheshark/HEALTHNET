@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/components/auth-provider'
 import { ThemeProvider } from '@/components/theme-provider'
+import { Toaster } from '@/components/ui/sonner'
+import { MedicalChatbot } from '@/components/MedicalChatbot'
 import './globals.css'
 
 const inter = Inter({
@@ -32,6 +34,8 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             {children}
+            <MedicalChatbot />
+            <Toaster />
           </ThemeProvider>
         </AuthProvider>
       </body>

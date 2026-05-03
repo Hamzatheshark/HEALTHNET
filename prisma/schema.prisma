@@ -6,29 +6,92 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  firstName String
-  lastName  String
-  phone     String?
-  role      String   @default("PATIENT")
-  specialty String?  // Pour médecins
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String?
+  role          String   @default("PATIENT") // PATIENT, MEDECIN, SECRETAIRE, ADMIN
+  specialty     String?  // Pour médecins
+  gender        String?  // M, F, Autre
+  address       String?
+  birthDate     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relations
   appointmentsAsPatient Appointment[] @relation("PatientAppointments")
   appointmentsAsDoctor  Appointment[] @relation("DoctorAppointments")
   consultationsAsPatient Consultation[] @relation("PatientConsultations")
   consultationsAsDoctor  Consultation[] @relation("DoctorConsultations")
+  medicalRecord         MedicalRecord?
+  notifications         Notification[]
+
+  // Liaison Secrétaire <-> Médecin
+  managedDoctors    User[] @relation("SecretaryDoctors")
+  managingSecretaries User[] @relation("SecretaryDoctors")
 
   @@map("users")
+}
+
+model MedicalRecord {
+  id                String   @id @default(cuid())
+  patientId         String   @unique
+  patient           User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  bloodType         String?
+  height            String?
+  weight            String?
+  allergies         String?  @db.Text
+  chronicDiseases   String?  @db.Text
+  medicalHistory    String?  @db.Text
+  
+  treatments        Treatment[]
+  vaccinations      Vaccination[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("medical_records")
+}
+
+model Treatment {
+  id              String   @id @default(cuid())
+  medicalRecordId String
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  
+  name            String
+  dosage          String
+  frequency       String
+  prescribedBy    String
+  startDate       DateTime
+  endDate         DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("treatments")
+}
+
+model Vaccination {
+  id              String   @id @default(cuid())
+  medicalRecordId String
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  
+  name            String
+  date            DateTime
+  nextDue         DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("vaccinations")
 }
 
 model Appointment {
@@ -37,7 +100,7 @@ model Appointment {
   time        String
   type        String   @default("IN_PERSON")
   location    String?
-  status      String   @default("PENDING")
+  status      String   @default("PLANIFIE") // PLANIFIE, CONFIRME, ANNULE, TERMINE
   reason      String?
   notes       String?
 
@@ -57,13 +120,14 @@ model Appointment {
 }
 
 model Consultation {
-  id            String   @id @default(cuid())
-  date          DateTime
-  reason        String
-  diagnosis     String?
-  prescription  Boolean  @default(false)
-  followUp      String?
-  notes         String?
+  id              String   @id @default(cuid())
+  date            DateTime
+  reason          String   @db.Text
+  diagnosis       String?  @db.Text
+  treatment       String?  @db.Text
+  recommendations String?  @db.Text
+  notes           String?  @db.Text
+  reportUrl       String?
 
   // Relations
   patientId     String
@@ -81,13 +145,29 @@ model Consultation {
   @@map("consultations")
 }
 
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title     String
+  message   String   @db.Text
+  type      String   @default("INFO") // RAPPEL, MODIF, ANNULATION, INFO
+  status    String   @default("UNREAD") // READ, UNREAD
+  
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
 model RolePermission {
   id          String   @id @default(cuid())
   role        String   @unique
-  permissions String   // JSON array stored as string
+  permissions String   @db.Text // JSON array stored as string
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@map("role_permissions")
 }
+

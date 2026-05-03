@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,70 +14,48 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Search, UserPlus, Edit, Phone, Mail, Calendar, User } from "lucide-react"
-
-const patients = [
-  {
-    id: 1,
-    name: "Jean Dupont",
-    email: "jean.dupont@email.fr",
-    phone: "06 12 34 56 78",
-    birthDate: "15/05/1975",
-    registeredDate: "10/01/2024",
-    lastVisit: "10/04/2026",
-    status: "actif",
-  },
-  {
-    id: 2,
-    name: "Marie Martin",
-    email: "marie.martin@email.fr",
-    phone: "06 98 76 54 32",
-    birthDate: "22/08/1982",
-    registeredDate: "15/03/2023",
-    lastVisit: "05/04/2026",
-    status: "actif",
-  },
-  {
-    id: 3,
-    name: "Pierre Leroy",
-    email: "pierre.leroy@email.fr",
-    phone: "06 11 22 33 44",
-    birthDate: "03/12/1990",
-    registeredDate: "01/04/2026",
-    lastVisit: "01/04/2026",
-    status: "nouveau",
-  },
-  {
-    id: 4,
-    name: "Sophie Bernard",
-    email: "sophie.bernard@email.fr",
-    phone: "06 55 66 77 88",
-    birthDate: "18/03/1968",
-    registeredDate: "20/06/2022",
-    lastVisit: "28/03/2026",
-    status: "actif",
-  },
-]
-
-const statusColors = {
-  actif: "bg-secondary/10 text-secondary",
-  nouveau: "bg-primary/10 text-primary",
-  inactif: "bg-muted text-muted-foreground",
-}
+import { Search, UserPlus, Edit, Phone, Mail, Calendar, User, Loader2, FileText } from "lucide-react"
+import { MedicalRecordForm } from "@/components/MedicalRecordForm"
+import { toast } from "sonner"
 
 export default function SecretaryPatientsPage() {
   const [search, setSearch] = useState("")
+  const [patients, setPatients] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [isRecordOpen, setIsRecordOpen] = useState(false)
+  const [selectedPatient, setSelectedPatient] = useState<any>(null)
+  
   const [newPatient, setNewPatient] = useState({
     firstName: "",
     lastName: "",
     email: "",
     phone: "",
     birthDate: "",
+    password: "Password123", // Default password for new patients created by secretary
   })
 
+  const fetchPatients = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch("/api/patients")
+      const data = await response.json()
+      if (response.ok) {
+        setPatients(data)
+      }
+    } catch (error) {
+      console.error("Error fetching patients:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchPatients()
+  }, [])
+
   const filteredPatients = patients.filter((patient) =>
-    patient.name.toLowerCase().includes(search.toLowerCase()) ||
+    `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
     patient.email.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -85,10 +63,32 @@ export default function SecretaryPatientsPage() {
     setNewPatient({ ...newPatient, [e.target.name]: e.target.value })
   }
 
-  const handleCreatePatient = (e: React.FormEvent) => {
+  const handleCreatePatient = async (e: React.FormEvent) => {
     e.preventDefault()
-    setDialogOpen(false)
-    setNewPatient({ firstName: "", lastName: "", email: "", phone: "", birthDate: "" })
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...newPatient, role: "PATIENT" }),
+      })
+      
+      if (!response.ok) throw new Error("Erreur lors de la creation")
+      
+      toast.success("Patient cree avec succes")
+      setDialogOpen(false)
+      setNewPatient({ firstName: "", lastName: "", email: "", phone: "", birthDate: "", password: "Password123" })
+      fetchPatients()
+    } catch (error) {
+      toast.error("Erreur lors de la creation du patient")
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -170,7 +170,7 @@ export default function SecretaryPatientsPage() {
               </div>
               <div className="flex gap-3">
                 <Button type="submit" className="flex-1">Creer le compte</Button>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="flex-1">
                   Annuler
                 </Button>
               </div>
@@ -202,43 +202,63 @@ export default function SecretaryPatientsPage() {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex gap-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-                    {patient.name.split(" ").map(n => n[0]).join("")}
+                    {patient.firstName[0]}{patient.lastName[0]}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-foreground">{patient.name}</h3>
-                      <Badge className={statusColors[patient.status as keyof typeof statusColors]}>
-                        {patient.status === "nouveau" ? "Nouveau" : patient.status === "actif" ? "Actif" : "Inactif"}
-                      </Badge>
+                      <h3 className="font-semibold text-foreground">{patient.firstName} {patient.lastName}</h3>
                     </div>
-                    <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-muted-foreground">
+                    <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-sm text-muted-foreground sm:grid-cols-2">
                       <span className="flex items-center gap-1">
                         <Mail className="h-3.5 w-3.5" />
                         {patient.email}
                       </span>
                       <span className="flex items-center gap-1">
                         <Phone className="h-3.5 w-3.5" />
-                        {patient.phone}
+                        {patient.phone || "-"}
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3.5 w-3.5" />
-                        Ne(e) le {patient.birthDate}
+                        Ne(e) le {patient.birthDate ? new Date(patient.birthDate).toLocaleDateString() : "Non renseignee"}
                       </span>
                       <span className="flex items-center gap-1">
                         <User className="h-3.5 w-3.5" />
-                        Inscrit le {patient.registeredDate}
+                        Role: {patient.role}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <Edit className="mr-2 h-4 w-4" />
-                    Modifier
-                  </Button>
-                  <Button size="sm">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Prendre RDV
+                  <Dialog open={isRecordOpen && selectedPatient?.id === patient.id} onOpenChange={(open) => {
+                    setIsRecordOpen(open)
+                    if (open) setSelectedPatient(patient)
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <FileText className="mr-2 h-4 w-4" />
+                        Dossier
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Dossier Medical - {patient.firstName} {patient.lastName}</DialogTitle>
+                      </DialogHeader>
+                      <MedicalRecordForm 
+                        patientId={patient.id} 
+                        initialData={patient.medicalRecord}
+                        onSuccess={() => {
+                          setIsRecordOpen(false)
+                          fetchPatients()
+                        }} 
+                      />
+                    </DialogContent>
+                  </Dialog>
+                  
+                  <Button size="sm" asChild>
+                    <a href={`/dashboard/secretaire/agenda-global?patient=${patient.id}`}>
+                      <Calendar className="mr-2 h-4 w-4" />
+                      RDV
+                    </a>
                   </Button>
                 </div>
               </div>
@@ -249,3 +269,4 @@ export default function SecretaryPatientsPage() {
     </div>
   )
 }
+

@@ -33,29 +33,37 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(validatedData.password, 12)
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        firstName: validatedData.firstName,
-        lastName: validatedData.lastName,
-        email: validatedData.email,
-        phone: validatedData.phone,
-        password: hashedPassword,
-        role: validatedData.role,
-        specialty: validatedData.specialty,
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
+    // Create user with transaction to ensure MedicalRecord is also created for patients
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          firstName: validatedData.firstName,
+          lastName: validatedData.lastName,
+          email: validatedData.email,
+          phone: validatedData.phone,
+          password: hashedPassword,
+          role: validatedData.role,
+          specialty: validatedData.specialty,
+        },
+      })
+
+      if (validatedData.role === "PATIENT") {
+        await tx.medicalRecord.create({
+          data: {
+            patientId: newUser.id,
+          }
+        })
       }
+
+      return newUser
     })
+
+    const { password: _, ...userWithoutPassword } = user
+
 
     return NextResponse.json({
       message: "User created successfully",
-      user
+      user: userWithoutPassword
     })
 
   } catch (error) {
@@ -66,9 +74,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.error("Registration error:", error)
+    console.error("Registration error details:", error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     )
   }

@@ -92,6 +92,11 @@ export default function MedicalFilePage() {
     if (session?.user) {
       fetchMedicalFile()
     }
+
+    window.addEventListener("medicalRecordUpdated", fetchMedicalFile)
+    return () => {
+      window.removeEventListener("medicalRecordUpdated", fetchMedicalFile)
+    }
   }, [session])
 
   if (status === "loading" || loadingFile) {
