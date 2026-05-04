@@ -73,14 +73,21 @@ export default function SecretaryPatientsPage() {
         body: JSON.stringify({ ...newPatient, role: "PATIENT" }),
       })
       
-      if (!response.ok) throw new Error("Erreur lors de la creation")
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Erreur lors de la creation")
       
       toast.success("Patient cree avec succes")
       setDialogOpen(false)
+      
+      // Offer to go to planning
+      if (confirm("Patient cree. Voulez-vous planifier un rendez-vous pour ce patient maintenant ?")) {
+        window.location.href = `/dashboard/secretaire/planning-medical?patientId=${data.user.id}&patientName=${encodeURIComponent(data.user.firstName + ' ' + data.user.lastName)}`
+      }
+      
       setNewPatient({ firstName: "", lastName: "", email: "", phone: "", birthDate: "", cin: "", password: "Password123" })
       fetchPatients()
-    } catch (error) {
-      toast.error("Erreur lors de la creation du patient")
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la creation du patient")
     }
   }
 
@@ -269,10 +276,10 @@ export default function SecretaryPatientsPage() {
                     </DialogContent>
                   </Dialog>
                   
-                  <Button size="sm" asChild>
-                    <a href={`/dashboard/secretaire/agenda-global?patient=${patient.id}`}>
+                  <Button size="sm" asChild variant="outline" className="border-primary/30 text-primary hover:bg-primary/5">
+                    <a href={`/dashboard/secretaire/planning-medical?patientId=${patient.id}&patientName=${encodeURIComponent(patient.firstName + ' ' + patient.lastName)}`}>
                       <Calendar className="mr-2 h-4 w-4" />
-                      RDV
+                      Planifier RDV
                     </a>
                   </Button>
                 </div>

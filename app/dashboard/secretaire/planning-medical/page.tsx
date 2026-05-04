@@ -1,13 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, User } from "lucide-react"
+import { Loader2, User, AlertCircle } from "lucide-react"
 import { DoctorAgenda } from "@/components/DoctorAgenda"
 
 export default function SecretaryPlanningPage() {
+  const searchParams = useSearchParams()
+  const patientId = searchParams.get("patientId")
+  const patientName = searchParams.get("patientName")
+  
   const [managedDoctors, setManagedDoctors] = useState<any[]>([])
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("")
   const [loading, setLoading] = useState(true)
@@ -49,27 +54,49 @@ export default function SecretaryPlanningPage() {
           <h1 className="text-2xl font-bold text-foreground">Planning medical</h1>
           <p className="text-muted-foreground">Gerez les creneaux et disponibilites des medecins</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Medecin :</span>
-          <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId}>
-            <SelectTrigger className="w-[250px]">
-              <SelectValue placeholder="Choisir un medecin" />
-            </SelectTrigger>
-            <SelectContent>
-              {managedDoctors.map((doc) => (
-                <SelectItem key={doc.id} value={doc.id}>
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    Dr. {doc.firstName} {doc.lastName}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          {patientName && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
+              <User className="h-3.5 w-3.5" />
+              Patient : {patientName}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">Medecin :</span>
+            <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId}>
+              <SelectTrigger className="w-[200px] sm:w-[250px]">
+                <SelectValue placeholder="Choisir un medecin" />
+              </SelectTrigger>
+              <SelectContent>
+                {managedDoctors.map((doc) => (
+                  <SelectItem key={doc.id} value={doc.id}>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Dr. {doc.firstName} {doc.lastName}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
-      <DoctorAgenda doctorId={selectedDoctorId} isSecretary={true} />
+      {patientId && (
+        <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+          <div className="text-sm text-foreground">
+            <p className="font-semibold">Nouveau rendez-vous pour {patientName}</p>
+            <p className="opacity-80">Choisissez un médecin et un créneau horaire libre (marqué "Disponible") pour finaliser l'inscription.</p>
+          </div>
+        </div>
+      )}
+
+      <DoctorAgenda 
+        doctorId={selectedDoctorId} 
+        isSecretary={true} 
+        preselectedPatientId={patientId || undefined}
+      />
     </div>
   )
 }

@@ -53,15 +53,41 @@ export default function SecretaryNotificationsPage() {
         setNotifications(notifications.map(n => 
           n.id === id ? { ...n, status: "READ" } : n
         ))
+        window.dispatchEvent(new Event("notificationsUpdated"))
       }
     } catch (error) {
       toast.error("Erreur lors de la mise a jour")
     }
   }
 
-  const deleteNotification = (id: string) => {
-    setNotifications(notifications.filter(n => n.id !== id))
-    toast.success("Notification supprimee")
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch("/api/notifications/mark-all", {
+        method: "PUT",
+      })
+      if (response.ok) {
+        setNotifications(notifications.map(n => ({ ...n, status: "READ" })))
+        window.dispatchEvent(new Event("notificationsUpdated"))
+        toast.success("Toutes les notifications sont marquees comme lues")
+      }
+    } catch (error) {
+      toast.error("Erreur")
+    }
+  }
+
+  const deleteNotification = async (id: string) => {
+    try {
+      const response = await fetch(`/api/notifications?id=${id}`, {
+        method: "DELETE",
+      })
+      if (response.ok) {
+        setNotifications(notifications.filter(n => n.id !== id))
+        window.dispatchEvent(new Event("notificationsUpdated"))
+        toast.success("Notification supprimee")
+      }
+    } catch (error) {
+      toast.error("Erreur")
+    }
   }
 
   const unreadCount = notifications.filter(n => n.status === "UNREAD").length
@@ -83,6 +109,11 @@ export default function SecretaryNotificationsPage() {
             {unreadCount > 0 ? `${unreadCount} nouvelle${unreadCount > 1 ? "s" : ""} notification${unreadCount > 1 ? "s" : ""}` : "Aucune nouvelle notification"}
           </p>
         </div>
+        {unreadCount > 0 && (
+          <Button onClick={markAllAsRead} variant="outline" size="sm">
+            Tout marquer comme lu
+          </Button>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -111,14 +142,21 @@ export default function SecretaryNotificationsPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <div>
+                        <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <h3 className="font-medium text-foreground">{notification.title}</h3>
                             {isUnread && (
                               <Badge className="bg-primary text-primary-foreground">Nouveau</Badge>
                             )}
                           </div>
-                          <p className="mt-1 text-sm text-muted-foreground">{notification.message}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {notification.user && (
+                              <span className="font-medium text-primary mr-1">
+                                [{notification.user.role === "MEDECIN" ? "Dr. " : ""}{notification.user.lastName}]
+                              </span>
+                            )}
+                            {notification.message}
+                          </p>
                           <p className="mt-2 text-xs text-muted-foreground">{new Date(notification.createdAt).toLocaleString()}</p>
                         </div>
                         <div className="flex gap-1">

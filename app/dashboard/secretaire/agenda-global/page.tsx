@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -12,7 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Calendar, ChevronLeft, ChevronRight, User, Clock, Edit, X, Plus, Search, Check, Loader2 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Calendar, ChevronLeft, ChevronRight, User, Clock, Edit, X, Plus, Search, Check, Loader2, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
@@ -25,12 +35,25 @@ const statusColors = {
 }
 
 export default function SecretaryAgendaPage() {
+  const router = useRouter()
   const [doctors, setDoctors] = useState<any[]>([])
   const [selectedDoctor, setSelectedDoctor] = useState("all")
   const [search, setSearch] = useState("")
   const [currentDate, setCurrentDate] = useState(new Date())
   const [appointments, setAppointments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [isNewPatientOpen, setIsNewPatientOpen] = useState(false)
+  const [creatingPatient, setCreatingPatient] = useState(false)
+
+  const [newPatient, setNewPatient] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    birthDate: "",
+    cin: "",
+    password: "Password123",
+  })
 
   const fetchDoctors = async () => {
     try {
@@ -45,7 +68,6 @@ export default function SecretaryAgendaPage() {
   const fetchAppointments = async () => {
     setLoading(true)
     try {
-      // Reuse doctor agenda API for global view
       const url = `/api/medecin/agenda?date=${currentDate.toISOString()}&doctorId=${selectedDoctor}`
       const response = await fetch(url)
       const data = await response.json()
@@ -54,6 +76,31 @@ export default function SecretaryAgendaPage() {
       console.error("Error fetching appointments:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCreatePatientAndBook = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCreatingPatient(true)
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...newPatient, role: "PATIENT" }),
+      })
+      
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Erreur")
+      
+      toast.success("Patient cree. Redirection vers le planning...")
+      setIsNewPatientOpen(false)
+      
+      // Redirect to planning with patient ID and name
+      router.push(`/dashboard/secretaire/planning-medical?patientId=${data.user.id}&patientName=${encodeURIComponent(data.user.firstName + ' ' + data.user.lastName)}`)
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la creation")
+    } finally {
+      setCreatingPatient(false)
     }
   }
 
@@ -99,10 +146,50 @@ export default function SecretaryAgendaPage() {
           <h1 className="text-2xl font-bold text-foreground">Agenda global</h1>
           <p className="text-muted-foreground">Gerez les rendez-vous de tous les medecins</p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Nouveau RDV
-        </Button>
+        <Dialog open={isNewPatientOpen} onOpenChange={setIsNewPatientOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              NOUVEAU RDV
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nouveau Patient & Rendez-vous</DialogTitle>
+              <DialogDescription>
+                Créez le compte du patient pour ensuite lui choisir un créneau.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreatePatientAndBook} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Prenom</Label>
+                  <Input required value={newPatient.firstName} onChange={e => setNewPatient({...newPatient, firstName: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Nom</Label>
+                  <Input required value={newPatient.lastName} onChange={e => setNewPatient({...newPatient, lastName: e.target.value})} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" required value={newPatient.email} onChange={e => setNewPatient({...newPatient, email: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Telephone</Label>
+                <Input type="tel" required value={newPatient.phone} onChange={e => setNewPatient({...newPatient, phone: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>CIN</Label>
+                <Input value={newPatient.cin} onChange={e => setNewPatient({...newPatient, cin: e.target.value})} />
+              </div>
+              <Button type="submit" className="w-full" disabled={creatingPatient}>
+                {creatingPatient ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
+                Créer et Planifier
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Filters */}

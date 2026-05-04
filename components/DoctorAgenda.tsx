@@ -42,15 +42,16 @@ const statusColors = {
 interface DoctorAgendaProps {
   doctorId?: string // Optional, if empty uses current doctor session
   isSecretary?: boolean
+  preselectedPatientId?: string
 }
 
-export function DoctorAgenda({ doctorId, isSecretary = false }: DoctorAgendaProps) {
+export function DoctorAgenda({ doctorId, isSecretary = false, preselectedPatientId }: DoctorAgendaProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [appointments, setAppointments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(preselectedPatientId || null)
   const [patients, setPatients] = useState<any[]>([])
 
   const fetchAppointments = async () => {
@@ -83,6 +84,9 @@ export function DoctorAgenda({ doctorId, isSecretary = false }: DoctorAgendaProp
     fetchAppointments()
     fetchPatients()
   }, [currentDate, doctorId])
+
+  // Auto-open slot selection if preselectedPatientId is provided
+  // But wait, we need to know WHICH slot. So we just set the patient ID.
 
   const handleConfirm = async (id: string) => {
     try {

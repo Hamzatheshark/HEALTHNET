@@ -75,6 +75,21 @@ export default function PatientNotificationsPage() {
     }
   }
 
+  const deleteNotification = async (id: string) => {
+    try {
+      const response = await fetch(`/api/notifications?id=${id}`, {
+        method: "DELETE",
+      })
+      if (response.ok) {
+        setNotifications(notifications.filter(n => n.id !== id))
+        window.dispatchEvent(new Event("notificationsUpdated"))
+        toast.success("Notification supprimee")
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la suppression")
+    }
+  }
+
   const unreadCount = notifications.filter(n => n.status === "UNREAD").length
 
   if (loading) {
