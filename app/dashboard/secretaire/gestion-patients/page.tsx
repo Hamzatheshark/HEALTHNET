@@ -32,13 +32,14 @@ export default function SecretaryPatientsPage() {
     email: "",
     phone: "",
     birthDate: "",
+    cin: "",
     password: "Password123", // Default password for new patients created by secretary
   })
 
   const fetchPatients = async () => {
     setLoading(true)
     try {
-      const response = await fetch("/api/patients")
+      const response = await fetch("/api/patients", { cache: "no-store" })
       const data = await response.json()
       if (response.ok) {
         setPatients(data)
@@ -76,7 +77,7 @@ export default function SecretaryPatientsPage() {
       
       toast.success("Patient cree avec succes")
       setDialogOpen(false)
-      setNewPatient({ firstName: "", lastName: "", email: "", phone: "", birthDate: "", password: "Password123" })
+      setNewPatient({ firstName: "", lastName: "", email: "", phone: "", birthDate: "", cin: "", password: "Password123" })
       fetchPatients()
     } catch (error) {
       toast.error("Erreur lors de la creation du patient")
@@ -168,6 +169,16 @@ export default function SecretaryPatientsPage() {
                   required
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="cin">Carte d'Identite (CIN)</Label>
+                <Input
+                  id="cin"
+                  name="cin"
+                  value={newPatient.cin}
+                  onChange={handleNewPatientChange}
+                  placeholder="Ex: AB123456"
+                />
+              </div>
               <div className="flex gap-3">
                 <Button type="submit" className="flex-1">Creer le compte</Button>
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="flex-1">
@@ -223,7 +234,7 @@ export default function SecretaryPatientsPage() {
                       </span>
                       <span className="flex items-center gap-1">
                         <User className="h-3.5 w-3.5" />
-                        Role: {patient.role}
+                        CIN: {patient.cin || "Non renseignee"}
                       </span>
                     </div>
                   </div>
@@ -245,7 +256,11 @@ export default function SecretaryPatientsPage() {
                       </DialogHeader>
                       <MedicalRecordForm 
                         patientId={patient.id} 
-                        initialData={patient.medicalRecord}
+                        initialData={{
+                          ...(patient.medicalRecord || {}),
+                          birthDate: patient.birthDate,
+                          cin: patient.cin
+                        }}
                         onSuccess={() => {
                           setIsRecordOpen(false)
                           fetchPatients()

@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FileText, Activity, Pill, AlertTriangle, User, Calendar, Droplet, Heart, Scale, Ruler } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 const defaultPatientInfo = {
   name: "Patient",
@@ -142,21 +143,31 @@ export default function MedicalFilePage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10">
-                <Droplet className="h-5 w-5 text-destructive" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <Pill className="h-5 w-5 text-primary" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Groupe sanguin</p>
-                <p className="font-medium text-foreground">{patientInfo.bloodType}</p>
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground">Traitements</p>
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-foreground">{currentTreatments.length} en cours</p>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] text-primary hover:text-primary hover:bg-primary/5" onClick={() => setActiveTab("treatments")}>
+                    Voir
+                  </Button>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10">
-                <Scale className="h-5 w-5 text-secondary" />
+                <FileText className="h-5 w-5 text-secondary" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Poids / Taille</p>
-                <p className="font-medium text-foreground">{patientInfo.weight} / {patientInfo.height}</p>
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground">Vaccinations</p>
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-foreground">{vaccinations.length} enregistrées</p>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] text-secondary hover:text-secondary hover:bg-secondary/5" onClick={() => setActiveTab("vaccinations")}>
+                    Voir
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

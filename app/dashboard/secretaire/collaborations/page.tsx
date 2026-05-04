@@ -14,6 +14,7 @@ export default function SecretaryCollaborationsPage() {
   const [managedDoctors, setManagedDoctors] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [fetchingManaged, setFetchingManaged] = useState(true)
+  const [sentRequests, setSentRequests] = useState<string[]>([])
 
   const fetchManagedDoctors = async () => {
     try {
@@ -51,6 +52,7 @@ export default function SecretaryCollaborationsPage() {
       const data = await response.json()
       if (response.ok) {
         toast.success("Demande envoyee avec succes")
+        setSentRequests([...sentRequests, doctorId])
       } else {
         toast.error(data.error || "Erreur")
       }
@@ -93,6 +95,7 @@ export default function SecretaryCollaborationsPage() {
               <div className="mt-6 space-y-3">
                 {doctors.map((doctor) => {
                   const isAlreadyManaged = managedDoctors.some(d => d.id === doctor.id)
+                  const isRequestSent = sentRequests.includes(doctor.id)
                   return (
                     <div key={doctor.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/30">
                       <div>
@@ -101,11 +104,13 @@ export default function SecretaryCollaborationsPage() {
                       </div>
                       <Button 
                         size="sm" 
-                        variant={isAlreadyManaged ? "ghost" : "outline"}
-                        disabled={isAlreadyManaged}
+                        variant={isAlreadyManaged || isRequestSent ? "ghost" : "outline"}
+                        disabled={isAlreadyManaged || isRequestSent}
                         onClick={() => sendRequest(doctor.id)}
                       >
-                        {isAlreadyManaged ? <Check className="h-4 w-4 text-secondary" /> : <UserPlus className="h-4 w-4" />}
+                        {isAlreadyManaged ? <Check className="h-4 w-4 text-secondary" /> : 
+                         isRequestSent ? <span className="text-[10px] text-primary">Envoye</span> :
+                         <UserPlus className="h-4 w-4" />}
                       </Button>
                     </div>
                   )

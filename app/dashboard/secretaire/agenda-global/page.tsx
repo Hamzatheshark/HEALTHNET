@@ -34,7 +34,7 @@ export default function SecretaryAgendaPage() {
 
   const fetchDoctors = async () => {
     try {
-      const response = await fetch("/api/doctors")
+      const response = await fetch("/api/secretaire/managed-doctors")
       const data = await response.json()
       if (response.ok) setDoctors(data)
     } catch (error) {
@@ -46,7 +46,7 @@ export default function SecretaryAgendaPage() {
     setLoading(true)
     try {
       // Reuse doctor agenda API for global view
-      const url = `/api/medecin/agenda?date=${currentDate.toISOString()}`
+      const url = `/api/medecin/agenda?date=${currentDate.toISOString()}&doctorId=${selectedDoctor}`
       const response = await fetch(url)
       const data = await response.json()
       if (response.ok) setAppointments(data)
@@ -63,7 +63,7 @@ export default function SecretaryAgendaPage() {
 
   useEffect(() => {
     fetchAppointments()
-  }, [currentDate])
+  }, [currentDate, selectedDoctor])
 
   const handleUpdateStatus = async (id: string, status: string) => {
     try {

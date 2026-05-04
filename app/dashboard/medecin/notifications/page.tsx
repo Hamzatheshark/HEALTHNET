@@ -60,6 +60,21 @@ export default function DoctorNotificationsPage() {
     }
   }
 
+  const deleteNotification = async (id: string) => {
+    try {
+      const response = await fetch(`/api/notifications?id=${id}`, {
+        method: "DELETE",
+      })
+      if (response.ok) {
+        setNotifications(notifications.filter(n => n.id !== id))
+        window.dispatchEvent(new Event("notificationsUpdated"))
+        toast.success("Notification supprimee")
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la suppression")
+    }
+  }
+
   const markAllAsRead = async () => {
     try {
       const response = await fetch("/api/notifications/mark-all", {
@@ -134,7 +149,9 @@ export default function DoctorNotificationsPage() {
                               <Badge className="bg-primary text-primary-foreground">Nouveau</Badge>
                             )}
                           </div>
-                          <p className="mt-1 text-sm text-muted-foreground">{notification.message}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {notification.message.replace(/\[ACCEPT_COLLAB:.+?\]/, "").trim()}
+                          </p>
                           <p className="mt-2 text-xs text-muted-foreground">{new Date(notification.createdAt).toLocaleString()}</p>
                         </div>
                         <div className="flex gap-1">

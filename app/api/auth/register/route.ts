@@ -11,6 +11,8 @@ const registerSchema = z.object({
   password: z.string().min(6),
   role: z.enum(["PATIENT", "MEDECIN", "SECRETAIRE", "ADMIN"]).default("PATIENT"),
   specialty: z.string().optional(),
+  birthDate: z.string().optional(),
+  cin: z.string().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -44,6 +46,8 @@ export async function POST(request: NextRequest) {
           password: hashedPassword,
           role: validatedData.role,
           specialty: validatedData.specialty,
+          birthDate: validatedData.birthDate ? new Date(validatedData.birthDate) : null,
+          cin: validatedData.cin,
         },
       })
 

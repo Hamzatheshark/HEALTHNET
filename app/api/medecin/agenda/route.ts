@@ -15,24 +15,30 @@ export async function GET(request: NextRequest) {
     const dateStr = searchParams.get("date")
     const requestedDoctorId = searchParams.get("doctorId")
     
-    let targetDoctorId = session.user.id
+    let targetDoctorIds: string[] = []
 
     if (session.user.role === "SECRETAIRE") {
       if (!requestedDoctorId) {
         return NextResponse.json({ error: "Doctor ID is required for secretary" }, { status: 400 })
       }
       
-      const isManaged = await prisma.user.findFirst({
-        where: {
-          id: session.user.id,
-          managedDoctors: { some: { id: requestedDoctorId } }
-        }
+      const secretary = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        include: { managedDoctors: { select: { id: true } } }
       })
-
-      if (!isManaged) {
-        return NextResponse.json({ error: "You do not manage this doctor" }, { status: 403 })
+      
+      const managedDoctorIds = secretary?.managedDoctors.map(d => d.id) || []
+      
+      if (requestedDoctorId === "all") {
+        targetDoctorIds = managedDoctorIds
+      } else {
+        if (!managedDoctorIds.includes(requestedDoctorId)) {
+          return NextResponse.json({ error: "You do not manage this doctor" }, { status: 403 })
+        }
+        targetDoctorIds = [requestedDoctorId]
       }
-      targetDoctorId = requestedDoctorId
+    } else {
+      targetDoctorIds = [session.user.id]
     }
 
     if (!dateStr) {
@@ -48,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     const appointments = await prisma.appointment.findMany({
       where: {
-        doctorId: targetDoctorId,
+        doctorId: { in: targetDoctorIds },
         status: { not: "ANNULE" },
         date: {
           gte: startOfDay,
@@ -57,6 +63,13 @@ export async function GET(request: NextRequest) {
       },
       include: {
         patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          }
+        },
+        doctor: {
           select: {
             id: true,
             firstName: true,

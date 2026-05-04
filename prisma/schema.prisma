@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,163 +8,146 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  password      String
-  firstName     String
-  lastName      String
-  phone         String?
-  role          String   @default("PATIENT") // PATIENT, MEDECIN, SECRETAIRE, ADMIN
-  specialty     String?  // Pour médecins
-  gender        String?  // M, F, Autre
-  address       String?
-  birthDate     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  appointmentsAsPatient Appointment[] @relation("PatientAppointments")
-  appointmentsAsDoctor  Appointment[] @relation("DoctorAppointments")
-  consultationsAsPatient Consultation[] @relation("PatientConsultations")
+  id                     String         @id @default(cuid())
+  email                  String         @unique
+  password               String
+  firstName              String
+  lastName               String
+  phone                  String?
+  role                   String         @default("PATIENT")
+  specialty              String?
+  gender                 String?
+  address                String?
+  birthDate              DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  cin                    String?
+  appointmentsAsDoctor   Appointment[]  @relation("DoctorAppointments")
+  appointmentsAsPatient  Appointment[]  @relation("PatientAppointments")
   consultationsAsDoctor  Consultation[] @relation("DoctorConsultations")
-  medicalRecord         MedicalRecord?
-  notifications         Notification[]
-
-  // Liaison Secrétaire <-> Médecin
-  managedDoctors    User[] @relation("SecretaryDoctors")
-  managingSecretaries User[] @relation("SecretaryDoctors")
+  consultationsAsPatient Consultation[] @relation("PatientConsultations")
+  medicalRecord          MedicalRecord?
+  notifications          Notification[]
+  users_A                User[]         @relation("secretarydoctors")
+  users_B                User[]         @relation("secretarydoctors")
 
   @@map("users")
 }
 
 model MedicalRecord {
-  id                String   @id @default(cuid())
-  patientId         String   @unique
-  patient           User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  bloodType         String?
-  height            String?
-  weight            String?
-  allergies         String?  @db.Text
-  chronicDiseases   String?  @db.Text
-  medicalHistory    String?  @db.Text
-  
-  treatments        Treatment[]
-  vaccinations      Vaccination[]
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String        @id @default(cuid())
+  patientId       String        @unique
+  bloodType       String?
+  height          String?
+  weight          String?
+  allergies       String?       @db.Text
+  chronicDiseases String?       @db.Text
+  medicalHistory  String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  patient         User          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  treatments      Treatment[]
+  vaccinations    Vaccination[]
 
   @@map("medical_records")
 }
 
 model Treatment {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   medicalRecordId String
-  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
-  
   name            String
   dosage          String
   frequency       String
   prescribedBy    String
   startDate       DateTime
   endDate         DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
+  @@index([medicalRecordId], map: "treatments_medicalRecordId_fkey")
   @@map("treatments")
 }
 
 model Vaccination {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   medicalRecordId String
-  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
-  
   name            String
   date            DateTime
   nextDue         DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
+  @@index([medicalRecordId], map: "vaccinations_medicalRecordId_fkey")
   @@map("vaccinations")
 }
 
 model Appointment {
-  id          String   @id @default(cuid())
-  date        DateTime
-  time        String
-  type        String   @default("IN_PERSON")
-  location    String?
-  status      String   @default("PLANIFIE") // PLANIFIE, CONFIRME, ANNULE, TERMINE
-  reason      String?
-  notes       String?
-
-  // Relations
-  patientId   String
-  patient     User     @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
-  doctorId    String
-  doctor      User     @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: Cascade)
-
-  // Consultation liée (optionnelle)
+  id           String        @id @default(cuid())
+  date         DateTime
+  time         String
+  type         String        @default("IN_PERSON")
+  location     String?
+  status       String        @default("PLANIFIE")
+  reason       String?
+  notes        String?
+  patientId    String
+  doctorId     String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  doctor       User          @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: Cascade)
+  patient      User          @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
   consultation Consultation?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  @@index([doctorId], map: "appointments_doctorId_fkey")
+  @@index([patientId], map: "appointments_patientId_fkey")
   @@map("appointments")
 }
 
 model Consultation {
-  id              String   @id @default(cuid())
+  id              String       @id @default(cuid())
   date            DateTime
-  reason          String   @db.Text
-  diagnosis       String?  @db.Text
-  treatment       String?  @db.Text
-  recommendations String?  @db.Text
-  notes           String?  @db.Text
+  reason          String       @db.Text
+  diagnosis       String?      @db.Text
+  treatment       String?      @db.Text
+  recommendations String?      @db.Text
+  notes           String?      @db.Text
   reportUrl       String?
+  patientId       String
+  doctorId        String
+  appointmentId   String?      @unique
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id])
+  doctor          User         @relation("DoctorConsultations", fields: [doctorId], references: [id], onDelete: Cascade)
+  patient         User         @relation("PatientConsultations", fields: [patientId], references: [id], onDelete: Cascade)
 
-  // Relations
-  patientId     String
-  patient       User     @relation("PatientConsultations", fields: [patientId], references: [id], onDelete: Cascade)
-  doctorId      String
-  doctor        User     @relation("DoctorConsultations", fields: [doctorId], references: [id], onDelete: Cascade)
-
-  // RDV lié
-  appointmentId String?  @unique
-  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
+  @@index([doctorId], map: "consultations_doctorId_fkey")
+  @@index([patientId], map: "consultations_patientId_fkey")
   @@map("consultations")
 }
 
 model Notification {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
   title     String
   message   String   @db.Text
-  type      String   @default("INFO") // RAPPEL, MODIF, ANNULATION, INFO
-  status    String   @default("UNREAD") // READ, UNREAD
-  
+  type      String   @default("INFO")
+  status    String   @default("UNREAD")
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId], map: "notifications_userId_fkey")
   @@map("notifications")
 }
 
 model RolePermission {
   id          String   @id @default(cuid())
   role        String   @unique
-  permissions String   @db.Text // JSON array stored as string
-
+  permissions String   @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@map("role_permissions")
 }
-

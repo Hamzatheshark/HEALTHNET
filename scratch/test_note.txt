@@ -1,0 +1,14 @@
+async function testUpdate() {
+  const patientId = "cmopuv7930009qmtohqjjiqas"
+  const payload = {
+    birthDate: "1995-05-05",
+    cin: "REALTEST",
+    bloodType: "B+",
+  }
+  
+  console.log("Sending PUT request to /api/patients/" + patientId + "/medical-record")
+  // We can't easily call the API from outside without a session.
+  // But we can check the code logic.
+}
+
+testUpdate()
