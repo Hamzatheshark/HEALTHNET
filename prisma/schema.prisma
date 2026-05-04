@@ -28,8 +28,8 @@ model User {
   consultationsAsPatient Consultation[] @relation("PatientConsultations")
   medicalRecord          MedicalRecord?
   notifications          Notification[]
-  users_A                User[]         @relation("secretarydoctors")
-  users_B                User[]         @relation("secretarydoctors")
+  managedDoctors    User[]         @relation("SecretaryDoctors")
+  managingSecretaries User[]       @relation("SecretaryDoctors")
 
   @@map("users")
 }

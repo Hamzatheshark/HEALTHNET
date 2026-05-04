@@ -3,6 +3,40 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 
+export const dynamic = "force-dynamic"
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session || session.user.role !== "SECRETAIRE") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Get pending requests: notifications this secretary sent to doctors
+    const pendingNotifications = await prisma.notification.findMany({
+      where: {
+        message: { contains: `[ACCEPT_COLLAB:${session.user.id}]` }
+      },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, specialty: true }
+        }
+      }
+    })
+
+    return NextResponse.json(pendingNotifications.map(n => ({
+      doctorId: n.userId,
+      doctor: n.user,
+      notificationId: n.id
+    })))
+
+  } catch (error) {
+    console.error("Pending requests error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -29,11 +63,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Deja en collaboration" }, { status: 400 })
     }
 
-    // Create a notification for the doctor with a "Link" to accept
-    // Since we don't have a complex approval system, I'll just link them immediately 
-    // as requested "envoyer une demande" but for now let's make it work.
-    // The user said "envoyer une demande", so I'll create a notification first.
-    
+    // Check if a pending request already exists
+    const existingRequest = await prisma.notification.findFirst({
+      where: {
+        userId: doctorId,
+        message: { contains: `[ACCEPT_COLLAB:${session.user.id}]` }
+      }
+    })
+
+    if (existingRequest) {
+      return NextResponse.json({ error: "Demande deja envoyee" }, { status: 400 })
+    }
+
+    // Create notification for doctor to accept/refuse
     await prisma.notification.create({
       data: {
         userId: doctorId,
@@ -51,7 +93,32 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE to end collaboration
+// DELETE to cancel a pending request
 export async function DELETE(request: NextRequest) {
-  // ... implement if needed ...
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session || session.user.role !== "SECRETAIRE") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const doctorId = searchParams.get("doctorId")
+
+    if (!doctorId) {
+      return NextResponse.json({ error: "Doctor ID required" }, { status: 400 })
+    }
+
+    // Remove the pending notification
+    await prisma.notification.deleteMany({
+      where: {
+        userId: doctorId,
+        message: { contains: `[ACCEPT_COLLAB:${session.user.id}]` }
+      }
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Cancel collaboration error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
 }

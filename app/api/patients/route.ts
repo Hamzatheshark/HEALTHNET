@@ -32,6 +32,10 @@ export async function GET(request: NextRequest) {
       })
       const managedDoctorIds = secretary?.managedDoctors.map(d => d.id) || []
       
+      if (managedDoctorIds.length === 0) {
+        return NextResponse.json([])
+      }
+
       patients = await prisma.$queryRaw`
         SELECT u.* FROM users u
         JOIN appointments a ON a.patientId = u.id
