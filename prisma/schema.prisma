@@ -112,6 +112,7 @@ model Consultation {
   diagnosis       String?      @db.Text
   treatment       String?      @db.Text
   recommendations String?      @db.Text
+  prescription    Boolean      @default(false)
   notes           String?      @db.Text
   reportUrl       String?
   patientId       String

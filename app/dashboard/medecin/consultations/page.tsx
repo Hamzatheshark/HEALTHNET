@@ -298,11 +298,11 @@ export default function DoctorConsultationsPage() {
                           onClick={async () => {
                             try {
                               const res = await fetch(`/api/consultations/${consultation.id}/pdf`, { method: "POST" })
+                              const data = await res.json()
                               if (res.ok) {
-                                toast.success("Ordonnance générée dans D:\\healthnet-pdfs")
+                                toast.success(`Ordonnance sauvegardée dans ${data.path}`)
                               } else {
-                                const data = await res.json()
-                                toast.error(data.error || "Erreur lors de la génération")
+                                toast.error((data.error || "Erreur lors de la génération") + (data.details ? ": " + data.details : ""))
                               }
                             } catch (e) {
                               toast.error("Erreur reseau")

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Activity, Pill, AlertTriangle, User, Calendar, Droplet, Heart, Scale, Ruler } from "lucide-react"
+import { FileText, Activity, Pill, AlertTriangle, User, Calendar, Droplet, Heart, Scale, Ruler, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const defaultPatientInfo = {
@@ -110,9 +110,30 @@ export default function MedicalFilePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Mon dossier medical</h1>
-        <p className="text-muted-foreground">Consultez votre historique medical</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Mon dossier medical</h1>
+          <p className="text-muted-foreground">Consultez votre historique medical</p>
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={async () => {
+            try {
+              const res = await fetch("/api/patient/medical-record/pdf", { method: "POST" })
+              const data = await res.json()
+              if (res.ok) {
+                alert(`Dossier médical sauvegardé dans ${data.path}`)
+              } else {
+                alert((data.error || "Erreur") + (data.details ? ": " + data.details : ""))
+              }
+            } catch (e) {
+              alert("Erreur reseau")
+            }
+          }}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Télécharger mon dossier (PDF)
+        </Button>
       </div>
 
       {fileError ? (

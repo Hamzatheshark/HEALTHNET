@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { patientId, reason, diagnosis, treatment, notes, recommendations } = body
+    const { patientId, reason, diagnosis, treatment, notes, recommendations, prescription } = body
 
     if (!patientId || !reason) {
       return NextResponse.json({ error: "Patient and Reason are required" }, { status: 400 })
@@ -52,7 +52,8 @@ export async function POST(request: NextRequest) {
         diagnosis,
         treatment,
         notes,
-        recommendations
+        recommendations,
+        prescription: !!prescription
       }
     })
 

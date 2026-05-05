@@ -124,7 +124,23 @@ export default function PatientConsultationsPage() {
                       <FileText className="mr-2 h-4 w-4" />Voir details
                     </Button>
                     {consultation.prescription && (
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/consultations/${consultation.id}/pdf`, { method: "POST" })
+                            const data = await res.json()
+                            if (res.ok) {
+                              alert(`Ordonnance sauvegardée dans ${data.path}`)
+                            } else {
+                              alert((data.error || "Erreur lors de la génération") + (data.details ? ": " + data.details : ""))
+                            }
+                          } catch (e) {
+                            alert("Erreur reseau")
+                          }
+                        }}
+                      >
                         <Download className="mr-2 h-4 w-4" />Ordonnance
                       </Button>
                     )}
