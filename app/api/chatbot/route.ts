@@ -15,10 +15,15 @@ const orientationRules = [
 export async function POST(request: NextRequest) {
   try {
     const { message } = await request.json()
-    const lowerMessage = message.toLowerCase()
+    
+    // Normalisation : enlever les accents et mettre en minuscule
+    const normalize = (str: string) => 
+      str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+
+    const normalizedMessage = normalize(message)
 
     let foundRule = orientationRules.find(rule => 
-      rule.keywords.some(keyword => lowerMessage.includes(keyword))
+      rule.keywords.some(keyword => normalizedMessage.includes(normalize(keyword)))
     )
 
     if (foundRule) {
@@ -47,10 +52,23 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Si aucune règle spécifique, on cherche des généralistes
+    const generalistes = await prisma.user.findMany({
+      where: {
+        role: "MEDECIN",
+        specialty: { contains: "Généraliste" }
+      },
+      select: { id: true, firstName: true, lastName: true, specialty: true },
+      take: 3
+    })
+
     return NextResponse.json({
       response: "Je ne parviens pas à identifier une spécialité précise. Il est préférable de consulter un **Médecin Généraliste** pour un premier diagnostic.",
       specialty: "Généraliste",
-      suggestion: "Souhaitez-vous prendre rendez-vous avec un généraliste ?"
+      doctors: generalistes,
+      suggestion: generalistes.length > 0 
+        ? "Souhaitez-vous prendre rendez-vous avec l'un de nos généralistes ?"
+        : "N'hésitez pas à consulter votre médecin traitant habituel."
     })
 
   } catch (error) {

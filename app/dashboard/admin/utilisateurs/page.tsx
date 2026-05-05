@@ -467,7 +467,17 @@ export default function UtilisateursPage() {
                               }
                             />
                           </div>
-                          {editFormData.role === "MEDECIN" && (
+                            <div className="space-y-2">
+                              <Label>Nouveau mot de passe (laisser vide pour ne pas changer)</Label>
+                              <Input
+                                type="password"
+                                placeholder="••••••••"
+                                onChange={(e) =>
+                                  handleEditChange("password", e.target.value)
+                                }
+                              />
+                            </div>
+                            {editFormData.role === "MEDECIN" && (
                             <div className="space-y-2">
                               <Label>Spécialité</Label>
                               <Select

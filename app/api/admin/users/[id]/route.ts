@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
+import bcrypt from "bcryptjs"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { z } from "zod"
@@ -11,6 +12,7 @@ const updateUserSchema = z.object({
   phone: z.string().optional(),
   specialty: z.string().optional(),
   role: z.enum(["PATIENT", "MEDECIN", "SECRETAIRE", "ADMIN"]).optional(),
+  password: z.string().min(6).optional(),
 })
 
 export async function PATCH(
@@ -39,9 +41,14 @@ export async function PATCH(
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
+    const updateData: any = { ...validatedData }
+    if (validatedData.password) {
+      updateData.password = await bcrypt.hash(validatedData.password, 12)
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: validatedData,
+      data: updateData,
       select: {
         id: true,
         firstName: true,

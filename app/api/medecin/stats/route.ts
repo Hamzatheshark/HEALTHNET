@@ -57,10 +57,14 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Consultations enregistrées (total ou période ?) - On garde total pour l'instant
+    // Consultations enregistrées sur la période sélectionnée
     const consultationsCount = await prisma.consultation.count({
       where: {
-        doctorId
+        doctorId,
+        date: {
+          gte: startDate,
+          lte: endDate
+        }
       }
     })
 
