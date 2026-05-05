@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Users, Stethoscope, Clock, TrendingUp, Activity, ChevronRight, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 const statusColors = {
   planifie: "bg-primary/10 text-primary",

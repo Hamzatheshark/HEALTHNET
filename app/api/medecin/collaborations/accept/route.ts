@@ -27,6 +27,14 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Delete the pending collaboration request notification
+    await prisma.notification.deleteMany({
+      where: {
+        userId: session.user.id,
+        message: { contains: `[ACCEPT_COLLAB:${secretaryId}]` }
+      }
+    })
+
     // Notify the secretary
     await prisma.notification.create({
       data: {
