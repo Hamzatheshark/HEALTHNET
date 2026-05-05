@@ -171,7 +171,7 @@ export default function DoctorNotificationsPage() {
                                     })
                                     if (res.ok) {
                                       toast.success("Collaboration acceptee")
-                                      markAsRead(notification.id)
+                                      deleteNotification(notification.id)
                                     }
                                   } catch (e) {
                                     toast.error("Erreur")

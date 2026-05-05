@@ -166,7 +166,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || !["MEDECIN", "SECRETAIRE", "ADMIN"].includes(session.user.role)) {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -177,29 +177,78 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "ID and status are required" }, { status: 400 })
     }
 
+    // Check ownership if patient
+    const existingApt = await prisma.appointment.findUnique({
+      where: { id },
+      include: { doctor: true, patient: true }
+    })
+
+    if (!existingApt) {
+      return NextResponse.json({ error: "Appointment not found" }, { status: 404 })
+    }
+
+    if (session.user.role === "PATIENT" && existingApt.patientId !== session.user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (session.user.role === "PATIENT" && status !== "ANNULE") {
+      return NextResponse.json({ error: "Patients can only cancel appointments" }, { status: 400 })
+    }
+
     const appointment = await prisma.appointment.update({
       where: { id },
       data: { status },
       include: { patient: true, doctor: true }
     })
 
-    // Notify the other party
-    const isDoctorAction = ["MEDECIN", "SECRETAIRE", "ADMIN"].includes(session.user.role)
-    const notifyUserId = isDoctorAction ? appointment.patientId : appointment.doctorId
-    const title = `Rendez-vous ${status.toLowerCase()}`
-    const message = isDoctorAction
-      ? `Votre rendez-vous avec le Dr. ${appointment.doctor.lastName} le ${appointment.date.toLocaleDateString()} a ${appointment.time} a ete ${status.toLowerCase()}.`
-      : `Le patient ${appointment.patient.firstName} ${appointment.patient.lastName} a ${status.toLowerCase()} le rendez-vous du ${appointment.date.toLocaleDateString()} a ${appointment.time}.`
+    // Notify on status change
+    const isPatient = session.user.id === appointment.patientId
+    const isDoctor = session.user.id === appointment.doctorId
+    const isSecretary = session.user.role === "SECRETAIRE"
+
+    const dateStr = appointment.date ? new Date(appointment.date).toLocaleDateString("fr-FR") : ""
+    const title = `Rendez-vous ${status === "CONFIRME" ? "confirmé" : status === "ANNULE" ? "annulé" : "mis à jour"}`
+    const type = status === "CONFIRME" ? "SUCCESS" : status === "ANNULE" ? "WARNING" : "INFO"
 
     if (appointment.reason !== "BLOQUE") {
-      await prisma.notification.create({
-        data: {
-          userId: notifyUserId,
-          title,
-          message,
-          type: status === "CONFIRME" ? "SUCCESS" : "WARNING"
-        }
-      })
+      if (isPatient) {
+        await prisma.notification.create({
+          data: {
+            userId: appointment.doctorId,
+            title,
+            message: `Le patient ${appointment.patient.firstName} ${appointment.patient.lastName} a ${status.toLowerCase()} son rendez-vous du ${dateStr} à ${appointment.time}.`,
+            type
+          }
+        })
+      } else if (isDoctor) {
+        await prisma.notification.create({
+          data: {
+            userId: appointment.patientId,
+            title,
+            message: `Le Dr. ${appointment.doctor.lastName} a ${status.toLowerCase()} votre rendez-vous du ${dateStr} à ${appointment.time}.`,
+            type
+          }
+        })
+      } else if (isSecretary) {
+        await Promise.all([
+          prisma.notification.create({
+            data: {
+              userId: appointment.doctorId,
+              title,
+              message: `Votre secrétaire a ${status.toLowerCase()} le rendez-vous du patient ${appointment.patient.firstName} ${appointment.patient.lastName} le ${dateStr} à ${appointment.time}.`,
+              type
+            }
+          }),
+          prisma.notification.create({
+            data: {
+              userId: appointment.patientId,
+              title,
+              message: `Le cabinet du Dr. ${appointment.doctor.lastName} a ${status.toLowerCase()} votre rendez-vous du ${dateStr} à ${appointment.time}.`,
+              type
+            }
+          })
+        ])
+      }
     }
 
     return NextResponse.json(appointment)

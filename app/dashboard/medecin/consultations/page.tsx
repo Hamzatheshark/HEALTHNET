@@ -292,6 +292,26 @@ export default function DoctorConsultationsPage() {
                         </div>
                       </div>
                       <div className="flex gap-2">
+                        <Button 
+                          variant="secondary" 
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/consultations/${consultation.id}/pdf`, { method: "POST" })
+                              if (res.ok) {
+                                toast.success("Ordonnance générée dans D:\\healthnet-pdfs")
+                              } else {
+                                const data = await res.json()
+                                toast.error(data.error || "Erreur lors de la génération")
+                              }
+                            } catch (e) {
+                              toast.error("Erreur reseau")
+                            }
+                          }}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Ordonnance PDF
+                        </Button>
                         <Button variant="outline" size="sm">
                           <FileText className="mr-2 h-4 w-4" />
                           Voir

@@ -17,27 +17,46 @@ export default function DoctorDashboardPage() {
   const [period, setPeriod] = useState<"jour" | "semaine" | "mois">("semaine")
   const [stats, setStats] = useState<any[]>([])
   const [recentActivities, setRecentActivities] = useState<any[]>([])
+  const [secretaries, setSecretaries] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true)
-      try {
-        const response = await fetch("/api/medecin/stats")
-        const data = await response.json()
-        if (response.ok) {
-          setStats(data.stats)
-          setRecentActivities(data.recentActivities)
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error)
-      } finally {
-        setLoading(false)
+  const fetchDashboardData = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/medecin/stats?period=${period}`)
+      const data = await response.json()
+      if (response.ok) {
+        setStats(data.stats)
+        setRecentActivities(data.recentActivities)
+        setSecretaries(data.secretaries || [])
       }
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchDashboardData()
-  }, [])
+  }, [period])
+
+  const terminateCollaboration = async (secretaryId: string) => {
+    if (!confirm("Voulez-vous vraiment arreter la collaboration avec cette secretaire ?")) return
+    try {
+      const res = await fetch("/api/medecin/collaborations/terminate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secretaryId })
+      })
+      if (res.ok) {
+        toast.success("Collaboration terminee")
+        fetchDashboardData()
+      }
+    } catch (e) {
+      toast.error("Erreur")
+    }
+  }
 
   if (loading) {
     return (
@@ -126,29 +145,32 @@ export default function DoctorDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Today's Schedule Placeholder */}
+        {/* Secretaries */}
         <Card className="border-border/50">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-primary" />
-                  Agenda du jour
-                </CardTitle>
-                <CardDescription>Consultez vos rendez-vous</CardDescription>
-              </div>
-              <Button variant="outline" size="sm" asChild>
-                <a href="/dashboard/medecin/agenda">
-                  Voir tout
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </a>
-              </Button>
-            </div>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Vos Secrétaires
+            </CardTitle>
+            <CardDescription>Gerez vos collaborations</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Calendar className="h-12 w-12 text-muted-foreground/20" />
-              <p className="mt-2 text-sm text-muted-foreground">Accedez a l&apos;agenda pour voir vos rendez-vous</p>
+            <div className="space-y-4">
+              {secretaries.length > 0 ? (
+                secretaries.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between border-b border-border/50 pb-2 last:border-0 last:pb-0">
+                    <div>
+                      <p className="font-medium">{s.firstName} {s.lastName}</p>
+                      <p className="text-xs text-muted-foreground">{s.email}</p>
+                    </div>
+                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => terminateCollaboration(s.id)}>
+                      Terminer
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-sm text-muted-foreground py-4">Aucune secretaire pour le moment</p>
+              )}
             </div>
           </CardContent>
         </Card>

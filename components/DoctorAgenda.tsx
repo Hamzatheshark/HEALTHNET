@@ -174,7 +174,7 @@ export function DoctorAgenda({ doctorId, isSecretary = false, preselectedPatient
   }
 
   const getAppointmentForSlot = (slot: string) => {
-    return appointments.find(apt => apt.time === slot)
+    return appointments.find(apt => apt.time?.trim() === slot.trim())
   }
 
   const prevDay = () => {
@@ -306,7 +306,7 @@ export function DoctorAgenda({ doctorId, isSecretary = false, preselectedPatient
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Rendez-vous</span>
                 <span className="font-semibold text-foreground">
-                  {appointments.filter(a => a.reason !== "BLOQUE").length}
+                  {appointments.filter(a => a.status !== "ANNULE" && a.reason !== "BLOQUE").length}
                 </span>
               </div>
               <div className="flex items-center justify-between">

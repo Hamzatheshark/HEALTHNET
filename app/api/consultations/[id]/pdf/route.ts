@@ -3,22 +3,24 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import PDFDocument from "pdfkit"
+import fs from "fs"
+import path from "path"
 
-export async function GET(
+export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session) {
+    if (!session || !["MEDECIN", "SECRETAIRE", "ADMIN"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id: consultationId } = params
+    const { id } = params
 
     const consultation = await prisma.consultation.findUnique({
-      where: { id: consultationId },
+      where: { id },
       include: {
         patient: true,
         doctor: true,
@@ -29,111 +31,65 @@ export async function GET(
       return NextResponse.json({ error: "Consultation not found" }, { status: 404 })
     }
 
-    // Create a PDF document
-    const doc = new PDFDocument({ margin: 50 })
-    const chunks: Buffer[] = []
+    // PDF generation
+    const doc = new PDFDocument()
+    const fileName = `ordonnance_${consultation.patient.lastName}_${new Date().getTime()}.pdf`
+    const outputDir = "D:\\healthnet-pdfs"
+    
+    // Check if D: exists, if not use a relative path as fallback but warn
+    let finalPath = path.join(outputDir, fileName)
+    
+    try {
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true })
+      }
+    } catch (err) {
+      console.error("Failed to create D:\\healthnet-pdfs, falling back to local storage", err)
+      const fallbackDir = path.join(process.cwd(), "public", "pdfs")
+      if (!fs.existsSync(fallbackDir)) {
+        fs.mkdirSync(fallbackDir, { recursive: true })
+      }
+      finalPath = path.join(fallbackDir, fileName)
+    }
 
-    doc.on("data", (chunk) => chunks.push(chunk))
+    const stream = fs.createWriteStream(finalPath)
+    doc.pipe(stream)
 
     // Header
-    doc
-      .fillColor("#444444")
-      .fontSize(20)
-      .text("HealthNet - Compte-rendu de Consultation", { align: "center" })
-      .moveDown()
-
-    doc
-      .fontSize(10)
-      .text(`Date: ${consultation.date.toLocaleDateString()}`, { align: "right" })
-      .text(`Reference: ${consultation.id}`, { align: "right" })
-      .moveDown()
-
-    // Doctor & Patient Info
-    doc
-      .fontSize(12)
-      .text("Informations Medecin:", { underline: true })
-      .text(`Dr. ${consultation.doctor.firstName} ${consultation.doctor.lastName}`)
-      .text(`Specialite: ${consultation.doctor.specialty || "Generaliste"}`)
-      .moveDown()
-
-    doc
-      .text("Informations Patient:", { underline: true })
-      .text(`Nom: ${consultation.patient.firstName} ${consultation.patient.lastName}`)
-      .text(`Email: ${consultation.patient.email}`)
-      .moveDown()
-
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke()
+    doc.fontSize(20).text("HEALTHNET - ORDONNANCE", { align: "center" })
     doc.moveDown()
-
-    // Consultation Details
-    doc
-      .fontSize(14)
-      .text("Details de la Consultation", { bold: true })
-      .moveDown(0.5)
-
-    doc
-      .fontSize(12)
-      .text("Motif:", { bold: true })
-      .text(consultation.reason)
-      .moveDown()
-
-    if (consultation.diagnosis) {
-      doc
-        .text("Diagnostic:", { bold: true })
-        .text(consultation.diagnosis)
-        .moveDown()
-    }
-
-    if (consultation.treatment) {
-      doc
-        .text("Traitement prescrit:", { bold: true })
-        .text(consultation.treatment)
-        .moveDown()
-    }
-
-    if (consultation.recommendations) {
-      doc
-        .text("Recommandations:", { bold: true })
-        .text(consultation.recommendations)
-        .moveDown()
-    }
-
-    if (consultation.notes) {
-      doc
-        .text("Notes complementaires:", { bold: true })
-        .text(consultation.notes)
-        .moveDown()
-    }
-
+    
+    // Doctor info
+    doc.fontSize(12).text(`Dr. ${consultation.doctor.firstName} ${consultation.doctor.lastName}`)
+    doc.text(`Spécialité : ${consultation.doctor.specialty || "Médecine Générale"}`)
+    doc.moveDown()
+    
+    // Date
+    doc.text(`Date : ${new Date().toLocaleDateString()}`, { align: "right" })
+    doc.moveDown()
+    
+    // Patient info
+    doc.text(`Patient : ${consultation.patient.firstName} ${consultation.patient.lastName}`)
+    doc.moveDown()
+    
+    // Content
+    doc.fontSize(14).text("Traitement prescrit :", { underline: true })
+    doc.fontSize(12).text(consultation.treatment || "Aucun traitement spécifié")
+    doc.moveDown()
+    
+    doc.fontSize(14).text("Recommandations :", { underline: true })
+    doc.fontSize(12).text(consultation.recommendations || "Aucune recommandation")
+    doc.moveDown()
+    
     // Footer
-    const bottom = 750
-    doc
-      .fontSize(10)
-      .text(
-        "Ce document est un compte-rendu officiel genere par la plateforme HealthNet.",
-        50,
-        bottom,
-        { align: "center", width: 500 }
-      )
+    doc.fontSize(10).text("Document généré par HealthNet", { align: "center", baseline: "bottom" })
 
     doc.end()
 
-    // Wait for the PDF to be fully generated
-    const pdfBuffer = await new Promise<Buffer>((resolve) => {
-      doc.on("end", () => {
-        resolve(Buffer.concat(chunks))
-      })
-    })
-
-    return new NextResponse(pdfBuffer, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="consultation_${consultation.id}.pdf"`,
-      }
-    })
+    return NextResponse.json({ success: true, path: finalPath })
 
   } catch (error) {
-    console.error("PDF generation error:", error)
+    console.error("PDF Generation error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

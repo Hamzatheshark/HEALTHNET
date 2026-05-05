@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
-import { startOfWeek, endOfWeek } from "date-fns"
+import { startOfWeek, endOfWeek, startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns"
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,12 +12,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const period = searchParams.get("period") || "semaine"
+
     const doctorId = session.user.id
     const now = new Date()
-    const weekStart = startOfWeek(now)
-    const weekEnd = endOfWeek(now)
+    
+    let startDate: Date
+    let endDate: Date
+    let periodLabel: string
 
-    // RDV à venir
+    if (period === "jour") {
+      startDate = startOfDay(now)
+      endDate = endOfDay(now)
+      periodLabel = "aujourd'hui"
+    } else if (period === "mois") {
+      startDate = startOfMonth(now)
+      endDate = endOfMonth(now)
+      periodLabel = "ce mois"
+    } else {
+      startDate = startOfWeek(now)
+      endDate = endOfWeek(now)
+      periodLabel = "cette semaine"
+    }
+
+    // RDV à venir (toujours à partir de maintenant)
     const upcomingAppointmentsCount = await prisma.appointment.count({
       where: {
         doctorId,
@@ -26,18 +45,19 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Patients cette semaine
-    const weeklyPatientsCount = await prisma.appointment.count({
+    // Patients sur la période sélectionnée
+    const patientsCount = await prisma.appointment.count({
       where: {
         doctorId,
         date: {
-          gte: weekStart,
-          lte: weekEnd
-        }
+          gte: startDate,
+          lte: endDate
+        },
+        status: { not: "ANNULE" }
       }
     })
 
-    // Consultations enregistrées
+    // Consultations enregistrées (total ou période ?) - On garde total pour l'instant
     const consultationsCount = await prisma.consultation.count({
       where: {
         doctorId
@@ -48,7 +68,7 @@ export async function GET(request: NextRequest) {
     const recentAppointments = await prisma.appointment.findMany({
       where: { doctorId },
       orderBy: { createdAt: "desc" },
-      take: 3,
+      take: 5,
       include: {
         patient: {
           select: { firstName: true, lastName: true }
@@ -56,59 +76,59 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const recentConsultations = await prisma.consultation.findMany({
-      where: { doctorId },
-      orderBy: { createdAt: "desc" },
-      take: 2,
-      include: {
-        patient: {
-          select: { firstName: true, lastName: true }
-        }
+    const recentActivities = recentAppointments.map(a => {
+      let title = ""
+      if (a.reason === "BLOQUE") {
+        title = `Creneau bloque par la secretaire ${a.patient.firstName} ${a.patient.lastName}`
+      } else {
+        title = `RDV ${a.status.toLowerCase()} avec ${a.patient.firstName} ${a.patient.lastName}`
       }
-    })
-
-    const recentActivities = [
-      ...recentAppointments.map(a => ({
+      
+      return {
         id: `apt-${a.id}`,
         type: "appointment",
-        title: `RDV ${a.status.toLowerCase()} avec ${a.patient.firstName} ${a.patient.lastName}`,
+        title: title,
         date: a.date.toLocaleDateString(),
         status: a.status.toLowerCase()
-      })),
-      ...recentConsultations.map(c => ({
-        id: `cons-${c.id}`,
-        type: "consultation",
-        title: `Consultation enregistrée pour ${c.patient.firstName} ${c.patient.lastName}`,
-        date: c.date.toLocaleDateString(),
-        status: "termine"
-      }))
-    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)
+      }
+    })
+
+    // Secretaires collaboratrices
+    const doctor = await prisma.user.findUnique({
+      where: { id: doctorId },
+      include: {
+        managingSecretaries: {
+          select: { id: true, firstName: true, lastName: true, email: true }
+        }
+      }
+    })
 
     return NextResponse.json({
       stats: [
         {
           title: "RDV a venir",
           value: upcomingAppointmentsCount.toString(),
-          change: "+0", // Placeholder for now
+          change: "+0",
           changeType: "neutral",
           color: "bg-primary/10 text-primary",
         },
         {
-          title: "Patients cette semaine",
-          value: weeklyPatientsCount.toString(),
+          title: `Patients ${periodLabel}`,
+          value: patientsCount.toString(),
           change: "+0",
           changeType: "neutral",
           color: "bg-secondary/10 text-secondary",
         },
         {
-          title: "Consultations enregistrees",
+          title: "Total Consultations",
           value: consultationsCount.toString(),
           change: "+0",
           changeType: "neutral",
           color: "bg-accent/10 text-accent",
         },
       ],
-      recentActivities
+      recentActivities,
+      secretaries: doctor?.managingSecretaries || []
     })
 
   } catch (error) {

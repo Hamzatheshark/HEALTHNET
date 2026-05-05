@@ -74,16 +74,64 @@ export async function PATCH(
       where: { id: appointmentId },
       data: updateData,
       include: {
-        doctor: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            specialty: true,
-          },
-        },
+        doctor: true,
+        patient: true,
       },
     })
+
+    // Notify on status change to ANNULE
+    if (validatedData.status === "ANNULE") {
+      const isPatient = session.user.id === updatedAppointment.patientId
+      const isDoctor = session.user.id === updatedAppointment.doctorId
+      const isSecretary = session.user.role === "SECRETAIRE"
+
+      const dateStr = updatedAppointment.date ? new Date(updatedAppointment.date).toLocaleDateString("fr-FR") : ""
+      const title = "Rendez-vous annulé"
+      
+      // If patient cancels, notify doctor
+      if (isPatient) {
+        await prisma.notification.create({
+          data: {
+            userId: updatedAppointment.doctorId,
+            title,
+            message: `Le patient ${updatedAppointment.patient.firstName} ${updatedAppointment.patient.lastName} a annulé son rendez-vous du ${dateStr} à ${updatedAppointment.time}.`,
+            type: "WARNING"
+          }
+        })
+      } 
+      // If doctor cancels, notify patient
+      else if (isDoctor) {
+        await prisma.notification.create({
+          data: {
+            userId: updatedAppointment.patientId,
+            title,
+            message: `Le Dr. ${updatedAppointment.doctor.lastName} a annulé votre rendez-vous du ${dateStr} à ${updatedAppointment.time}.`,
+            type: "WARNING"
+          }
+        })
+      }
+      // If secretary cancels, notify both
+      else if (isSecretary) {
+        await Promise.all([
+          prisma.notification.create({
+            data: {
+              userId: updatedAppointment.doctorId,
+              title,
+              message: `Votre secrétaire a annulé le rendez-vous du patient ${updatedAppointment.patient.firstName} ${updatedAppointment.patient.lastName} le ${dateStr} à ${updatedAppointment.time}.`,
+              type: "WARNING"
+            }
+          }),
+          prisma.notification.create({
+            data: {
+              userId: updatedAppointment.patientId,
+              title,
+              message: `Le cabinet du Dr. ${updatedAppointment.doctor.lastName} a annulé votre rendez-vous du ${dateStr} à ${updatedAppointment.time}.`,
+              type: "WARNING"
+            }
+          })
+        ])
+      }
+    }
 
     return NextResponse.json(updatedAppointment)
   } catch (error) {
@@ -118,11 +166,7 @@ export async function DELETE(
 
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
-      select: {
-        id: true,
-        patientId: true,
-        doctorId: true,
-      },
+      include: { doctor: true, patient: true }
     })
 
     if (!appointment) {
@@ -131,25 +175,68 @@ export async function DELETE(
 
     if (
       session.user.id !== appointment.patientId &&
-      session.user.id !== appointment.doctorId
+      session.user.id !== appointment.doctorId &&
+      session.user.role !== "SECRETAIRE" &&
+      session.user.role !== "ADMIN"
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const deletedAppointment = await prisma.appointment.update({
       where: { id: appointmentId },
-      data: { status: "CANCELLED" },
+      data: { status: "ANNULE" },
       include: {
-        doctor: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            specialty: true,
-          },
-        },
+        doctor: true,
+        patient: true,
       },
     })
+
+    // Notify the other party
+    const isPatient = session.user.id === appointment.patientId
+    const isDoctor = session.user.id === appointment.doctorId
+    const isSecretary = session.user.role === "SECRETAIRE"
+    
+    const dateStr = deletedAppointment.date ? new Date(deletedAppointment.date).toLocaleDateString("fr-FR") : ""
+    const title = "Rendez-vous annulé"
+
+    if (isPatient) {
+      await prisma.notification.create({
+        data: {
+          userId: deletedAppointment.doctorId,
+          title,
+          message: `Le patient ${deletedAppointment.patient.firstName} ${deletedAppointment.patient.lastName} a annulé son rendez-vous du ${dateStr} à ${deletedAppointment.time}.`,
+          type: "WARNING"
+        }
+      })
+    } else if (isDoctor) {
+      await prisma.notification.create({
+        data: {
+          userId: deletedAppointment.patientId,
+          title,
+          message: `Le Dr. ${deletedAppointment.doctor.lastName} a annulé votre rendez-vous du ${dateStr} à ${deletedAppointment.time}.`,
+          type: "WARNING"
+        }
+      })
+    } else if (isSecretary) {
+      await Promise.all([
+        prisma.notification.create({
+          data: {
+            userId: deletedAppointment.doctorId,
+            title,
+            message: `Votre secrétaire a annulé le rendez-vous du patient ${deletedAppointment.patient.firstName} ${deletedAppointment.patient.lastName} le ${dateStr} à ${deletedAppointment.time}.`,
+            type: "WARNING"
+          }
+        }),
+        prisma.notification.create({
+          data: {
+            userId: deletedAppointment.patientId,
+            title,
+            message: `Le cabinet du Dr. ${deletedAppointment.doctor.lastName} a annulé votre rendez-vous du ${dateStr} à ${deletedAppointment.time}.`,
+            type: "WARNING"
+          }
+        })
+      ])
+    }
 
     return NextResponse.json(deletedAppointment)
   } catch (error) {

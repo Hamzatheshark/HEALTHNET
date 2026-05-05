@@ -245,13 +245,16 @@ export default function SearchDoctorPage() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Heure</label>
-                <Input
-                  type="time"
-                  value={bookingTime}
-                  min={minTime}
-                  onChange={(e) => setBookingTime(e.target.value)}
-                  required
-                />
+                <Select value={bookingTime} onValueChange={setBookingTime}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"].map(slot => (
+                      <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <label className="text-sm font-medium text-foreground">Type de consultation</label>

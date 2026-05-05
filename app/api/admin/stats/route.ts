@@ -11,32 +11,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get count of users by role
-    const userStats = await prisma.user.groupBy({
-      by: ["role"],
-      _count: {
-        id: true,
-      },
+    const totalUsers = await prisma.user.count()
+    const activeDoctors = await prisma.user.count({ where: { role: "MEDECIN" } })
+    const totalPatients = await prisma.user.count({ where: { role: "PATIENT" } })
+    const totalSecretaries = await prisma.user.count({ where: { role: "SECRETAIRE" } })
+    
+    const totalAppointments = await prisma.appointment.count()
+    const totalConsultations = await prisma.consultation.count()
+    
+    // Recent growth (placeholder logic for now, could be more complex)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    
+    const newUsersLast30Days = await prisma.user.count({
+      where: { createdAt: { gte: thirtyDaysAgo } }
     })
 
-    // Format the response
-    const stats = {
-      PATIENT: 0,
-      MEDECIN: 0,
-      SECRETAIRE: 0,
-      ADMIN: 0,
-    }
-
-    userStats.forEach((stat) => {
-      stats[stat.role as keyof typeof stats] = stat._count.id
+    return NextResponse.json({
+      totalUsers,
+      activeDoctors,
+      totalPatients,
+      totalSecretaries,
+      totalAppointments,
+      totalConsultations,
+      newUsersLast30Days
     })
 
-    return NextResponse.json(stats)
   } catch (error) {
-    console.error("Get stats error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    console.error("Get admin stats error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
