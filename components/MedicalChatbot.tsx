@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 export function MedicalChatbot() {
   const [isOpen, setIsOpen] = useState(false)
   const [message, setMessage] = useState("")
-  const [chat, setChat] = useState<{ role: "bot" | "user", content: string }[]>([
+  const [chat, setChat] = useState<{ role: "bot" | "user", content: string, doctors?: any[] }[]>([
     { role: "bot", content: "Bonjour ! Je suis votre assistant HealthNet. Décrivez-moi vos symptômes pour que je puisse vous orienter." }
   ])
   const [loading, setLoading] = useState(false)
@@ -32,7 +32,11 @@ export function MedicalChatbot() {
       })
       const data = await response.json()
       
-      setChat(prev => [...prev, { role: "bot", content: data.response }])
+      setChat(prev => [...prev, { 
+        role: "bot", 
+        content: data.response + (data.suggestion ? `\n\n${data.suggestion}` : ""),
+        doctors: data.doctors 
+      }])
     } catch (error) {
       setChat(prev => [...prev, { role: "bot", content: "Désolé, j'ai rencontré un problème. Veuillez réessayer." }])
     } finally {
@@ -86,7 +90,25 @@ export function MedicalChatbot() {
                     "rounded-2xl p-3 text-sm",
                     msg.role === "user" ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted rounded-tl-none"
                   )}>
-                    {msg.content}
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    {msg.doctors && msg.doctors.length > 0 && (
+                      <div className="mt-3 space-y-2 border-t pt-2">
+                        {msg.doctors.map((doc: any) => (
+                          <div key={doc.id} className="flex flex-col gap-1 rounded bg-background p-2 text-foreground shadow-sm">
+                            <span className="font-bold text-xs">Dr. {doc.firstName} {doc.lastName}</span>
+                            <span className="text-[10px] opacity-70">{doc.specialty}</span>
+                            <Button 
+                              variant="link" 
+                              size="sm" 
+                              className="h-auto p-0 text-[10px] text-primary"
+                              onClick={() => window.location.href = `/dashboard/patient/rendez-vous?doctorId=${doc.id}`}
+                            >
+                              Prendre RDV
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

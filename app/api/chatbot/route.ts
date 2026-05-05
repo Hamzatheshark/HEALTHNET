@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/db"
 
 const orientationRules = [
   { keywords: ["tête", "migraine", "céphalée"], specialty: "Neurologue", advice: "Il est conseillé de consulter un neurologue si les maux de tête sont persistants." },
@@ -21,10 +22,28 @@ export async function POST(request: NextRequest) {
     )
 
     if (foundRule) {
+      // Find real doctors with this specialty
+      const suggestedDoctors = await prisma.user.findMany({
+        where: {
+          role: "MEDECIN",
+          specialty: foundRule.specialty
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          specialty: true
+        },
+        take: 3
+      })
+
       return NextResponse.json({
         response: `D'après vos symptômes, je vous oriente vers un **${foundRule.specialty}**. ${foundRule.advice}`,
         specialty: foundRule.specialty,
-        suggestion: `Souhaitez-vous voir la liste de nos ${foundRule.specialty}s ?`
+        doctors: suggestedDoctors,
+        suggestion: suggestedDoctors.length > 0 
+          ? `Voici quelques ${foundRule.specialty}s disponibles sur notre plateforme :`
+          : `Malheureusement, aucun ${foundRule.specialty} n'est inscrit pour le moment. Nous vous conseillons de consulter un Généraliste.`
       })
     }
 
@@ -35,6 +54,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
+    console.error("Chatbot error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, UserPlus, Shield, Activity, Loader2 } from "lucide-react"
 
@@ -109,6 +110,27 @@ export default function AdminDashboard() {
               <Users className="h-4 w-4" />
               <span className="text-sm">Voir tous les utilisateurs</span>
             </a>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full justify-start border-secondary/50 text-secondary hover:bg-secondary/10"
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/notifications/reminders", { method: "POST" })
+                  const data = await res.json()
+                  if (res.ok) {
+                    alert(`Succès : ${data.remindersCreated} rappels envoyés.`)
+                  } else {
+                    alert("Erreur lors de l'envoi des rappels.")
+                  }
+                } catch (e) {
+                  alert("Erreur réseau.")
+                }
+              }}
+            >
+              <Activity className="mr-2 h-4 w-4" />
+              Lancer les rappels (Simulateur Cron)
+            </Button>
           </CardContent>
         </Card>
 
