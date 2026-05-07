@@ -49,13 +49,13 @@ export function MedicalChatbot() {
       {!isOpen ? (
         <Button 
           onClick={() => setIsOpen(true)} 
-          className="h-14 w-14 rounded-full shadow-lg"
+          className="h-16 w-16 rounded-full shadow-2xl animate-float transition-all hover:scale-110 active:scale-95"
           size="icon"
         >
-          <MessageSquare className="h-6 w-6" />
+          <MessageSquare className="h-8 w-8" />
         </Button>
       ) : (
-        <Card className="w-80 shadow-2xl sm:w-96">
+        <Card className="w-80 shadow-2xl sm:w-96 animate-slide-up overflow-hidden border-border/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b p-4 bg-primary text-primary-foreground rounded-t-lg">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Bot className="h-4 w-4" />
@@ -76,7 +76,7 @@ export function MedicalChatbot() {
                 <div 
                   key={i} 
                   className={cn(
-                    "flex gap-2 max-w-[85%]",
+                    "flex gap-2 max-w-[85%] transition-all duration-300 animate-slide-up",
                     msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
                   )}
                 >
@@ -117,8 +117,10 @@ export function MedicalChatbot() {
                   <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 mt-1">
                     <Bot className="h-3 w-3" />
                   </div>
-                  <div className="bg-muted rounded-2xl rounded-tl-none p-3 text-sm animate-pulse">
-                    En train de réfléchir...
+                  <div className="bg-muted rounded-2xl rounded-tl-none p-3 text-sm flex items-center gap-1">
+                    <span className="typing-dot"></span>
+                    <span className="typing-dot"></span>
+                    <span className="typing-dot"></span>
                   </div>
                 </div>
               )}

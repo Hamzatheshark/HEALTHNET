@@ -9,8 +9,9 @@ const createConsultationSchema = z.object({
   appointmentId: z.string().optional(),
   reason: z.string(),
   diagnosis: z.string().optional(),
+  treatment: z.string().optional(),
   prescription: z.boolean().default(false),
-  followUp: z.string().optional(),
+  recommendations: z.string().optional(),
   notes: z.string().optional(),
 })
 
@@ -103,8 +104,9 @@ export async function POST(request: NextRequest) {
         date: new Date(),
         reason: validatedData.reason,
         diagnosis: validatedData.diagnosis,
+        treatment: validatedData.treatment,
         prescription: validatedData.prescription,
-        followUp: validatedData.followUp,
+        recommendations: validatedData.recommendations,
         notes: validatedData.notes,
         appointmentId: validatedData.appointmentId,
       },
