@@ -57,7 +57,8 @@ export function DoctorAgenda({ doctorId, isSecretary = false, preselectedPatient
   const fetchAppointments = async () => {
     setLoading(true)
     try {
-      const url = `/api/medecin/agenda?date=${currentDate.toISOString()}${doctorId ? `&doctorId=${doctorId}` : ""}`
+      const dateParam = format(currentDate, 'yyyy-MM-dd')
+      const url = `/api/medecin/agenda?date=${dateParam}${doctorId ? `&doctorId=${doctorId}` : ""}`
       const response = await fetch(url)
       const data = await response.json()
       if (response.ok) {
@@ -174,7 +175,12 @@ export function DoctorAgenda({ doctorId, isSecretary = false, preselectedPatient
   }
 
   const getAppointmentForSlot = (slot: string) => {
-    return appointments.find(apt => apt.time?.trim() === slot.trim())
+    return appointments.find(apt => {
+      if (!apt.time) return false;
+      const aptTime = apt.time.trim().substring(0, 5); // Take "HH:mm"
+      const slotTime = slot.trim().substring(0, 5);
+      return aptTime === slotTime;
+    })
   }
 
   const prevDay = () => {

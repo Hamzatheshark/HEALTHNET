@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         doctorId: targetDoctorId,
         date: new Date(date),
         time: time,
-        status: { not: "ANNULE" }
+        status: { notIn: ["ANNULE", "CANCELLED", "annule", "ANNULÉ"] }
       }
     })
 
@@ -100,9 +100,9 @@ export async function POST(request: NextRequest) {
     // Check if the patient already has an appointment on the same day
     if (reason !== "BLOQUE" && targetPatientId !== targetDoctorId) {
       const startOfDay = new Date(date)
-      startOfDay.setHours(0, 0, 0, 0)
+      startOfDay.setUTCHours(0, 0, 0, 0)
       const endOfDay = new Date(date)
-      endOfDay.setHours(23, 59, 59, 999)
+      endOfDay.setUTCHours(23, 59, 59, 999)
 
       const patientExistingApt = await prisma.appointment.findFirst({
         where: {
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
             gte: startOfDay,
             lte: endOfDay,
           },
-          status: { not: "ANNULE" },
+          status: { notIn: ["ANNULE", "CANCELLED", "annule", "ANNULÉ"] },
           reason: { not: "BLOQUE" }
         }
       })

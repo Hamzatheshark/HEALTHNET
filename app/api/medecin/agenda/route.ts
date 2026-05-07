@@ -47,15 +47,15 @@ export async function GET(request: NextRequest) {
 
     const targetDate = new Date(dateStr)
     const startOfDay = new Date(targetDate)
-    startOfDay.setHours(0, 0, 0, 0)
+    startOfDay.setUTCHours(0, 0, 0, 0)
     
     const endOfDay = new Date(targetDate)
-    endOfDay.setHours(23, 59, 59, 999)
+    endOfDay.setUTCHours(23, 59, 59, 999)
 
     const appointments = await prisma.appointment.findMany({
       where: {
         doctorId: { in: targetDoctorIds },
-        status: { not: "ANNULE" },
+        status: { notIn: ["ANNULE", "CANCELLED", "annule", "ANNULÉ"] },
         date: {
           gte: startOfDay,
           lte: endOfDay,
